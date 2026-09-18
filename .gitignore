@@ -1,0 +1,60 @@
+# Ambientes Virtuais Python
+.venv/
+env/
+venv/
+ENV/
+
+# Arquivos de Credenciais e Variáveis Sensíveis (NUNCA SUBIR PRO GIT)
+.env
+*.env.local
+.env.*.local
+
+# Vídeos e Arquivos Grandes (>100MB bloqueados pelo GitHub)
+docs/videos/
+*.mp4
+*.mkv
+*.mov
+*.avi
+
+# Cache e Compilados do Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testes e Cobertura
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs e Arquivos Temporários de Imagem do RPA
+*.log
+*.png
+*.jpg
+*.jpeg
+
+# IDEs e Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Sistema Operacional
+.DS_Store
+Thumbs.db

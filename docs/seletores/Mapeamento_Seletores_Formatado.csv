@@ -1,0 +1,68 @@
+﻿Módulo / Página;Campo / Elemento;Tipo de Elemento;Seletor / Localizador;Exemplo de Uso (Playwright);Observações
+Login LGE;User ID;Input (ID);#USER;"page.fill(""#USER"", ""seu_usuario"")";Campo de usuário corporativo. Ao pressionar Tab / sair do foco, dispara a exibição do campo de OTP.
+Login LGE;Password;Input (ID);#LDAPPASSWORD;"page.fill(""#LDAPPASSWORD"", ""sua_senha"")";Campo de senha de rede corporativa (LDAP).
+Login LGE;OTP Password;Input (ID);#OTPPASSWORD;"# 1. Preenche o usuário
+page.fill(""#USER"", ""seu_usuario"")
+
+# 2. Pressiona Tab para disparar a exibição do OTP
+page.locator(""#USER"").press(""Tab"")
+
+# 3. Aguarda o campo de OTP ficar visível
+page.wait_for_selector(""#OTPPASSWORD"", state=""visible"")
+
+# 4. Preenche o código OTP
+page.fill(""#OTPPASSWORD"", ""123456"")";Campo condicional: só é renderizado/exibido após o campo de usuário perder o foco (Tab).
+Login LGE;OTP Self-Service (Link/Botão);Botão / Link (ID);#OTP;"page.click(""#OTP"")";Abre a tela/popup para solicitação de OTP temporário caso o usuário não possua o token ativo.
+OTP Auth (Self-Service);OTP Temporary (Solicitação);Botão / Popup (Classe);.tempPw;"with page.expect_popup() as popup_info:
+    page.click("".tempPw"")
+popup = popup_info.value
+popup.wait_for_load_state()";"Abre o popup de requisição de OTP temporário.
+Dica: É possível navegar direto para a URL:
+base_url = ""https://seu-dominio-aqui.com""
+page.goto(f""{base_url}/selfservice/TempPasswordRequestPcode.jsp?lang=eng"")"
+OTP Auth Access;Password;Input (ID);#pw;"page.fill(""#pw"", ""SUA_SENHA"")";Campo de senha de autorização do autoatendimento OTP.
+OTP Auth Access;Botão Login;Botão (ID);#myButton;"page.click(""#myButton"")";Botão para submeter a autenticação do autoatendimento OTP.
+OTP Auth Temporary;Employee Number;Input (ID);#bizidE;"page.fill(""#bizidE"", ""SEU_NUMERO_EMPLOYEE"")";Número de matrícula/identificação do funcionário.
+OTP Auth Temporary;Personal Identification Code;Input (ID);#pcodeE;"page.fill(""#pcodeE"", ""19900101"")";Código pessoal de identificação / data cadastrada.
+OTP Auth Temporary;Pictorial Symbol (Captcha);Input (ID);#answerE;"page.fill(""#answerE"", ""TEXTO_DA_IMAGEM"")";Campo para digitação dos caracteres do Captcha.
+OTP Auth Temporary;Botão OK;Botão (Value);"input[value=""Ok""]";"page.click('input[value=""Ok""]:visible')";Confirmação do formulário de solicitação de OTP temporário.
+OTP Auth Temporary;Resetar Pictorial Symbol (Captcha);Botão / Imagem (Atributo);"img[src*=""captcha_reload""]";"page.click('img[src*=""captcha_reload""]:visible')";Recarrega uma nova imagem de Captcha caso a atual esteja ilegível.
+Portal LG (New EP);System Map;Link / Menu (Classe);a.btn_systemMap;"page.locator(""a.btn_systemMap"").click()";"Portal: http://newep.lge.com/portal/main/portalMain.do
+Abre o menu de mapa de sistemas para localizar o LMS."
+LMS - Gestão de Contratos;Contract Review Management;Navegação / Link;https://lms.lge.com/#/app/contract/search;"page.goto(""https://lms.lge.com/#/app/contract/search"")";URL direta da tela de pesquisa e gestão de contratos.
+LMS - Gestão de Contratos;Subsidiary Code (Filtro);Dropdown (React Select);.react-select (Label: Subsidiary Code);"# 1. Localiza o contêiner do React Select pelo texto
+combo_container = page.locator("".react-select"").filter(has_text=""Subsidiary Code"")
+
+# 2. Localiza o input de busca e ativa o foco
+combo_input = combo_container.locator(""input.select__input"")
+combo_input.click()
+combo_input.fill(code_value)
+
+# 3. Clica na opção correspondente no dropdown
+page.locator("".select__option"").filter(has_text=code_value).first.click()";Componente React Select customizado. Requer clique para abrir, filtro por digitação e seleção da opção na lista (.select__option).
+LMS - Gestão de Contratos;Request Date (Filtro);Dropdown (React Select);.react-select (Label: Request Date);"# 1. Localiza o dropdown pelo texto e abre
+dropdown = page.locator("".react-select"").filter(has_text=""Request Date"")
+dropdown.click()
+
+# 2. Aguarda a opção aparecer e clica nela
+option = page.locator("".select__option"").filter(has_text=""Last 10 years"")
+option.wait_for(state=""visible"")
+option.click()";Filtro de período. Seleciona o intervalo desejado (ex: 'Last 10 years').
+LMS - Gestão de Contratos;Botão Download (Exportação);Botão (Texto);"button:has-text(""Download"")";"with page.expect_download() as download_info:
+    page.click('button:has-text(""Download"")')
+download = download_info.value
+download.save_as(""relatorio_contratos.xlsx"")";Gera e descarrega o arquivo de exportação da listagem de contratos.
+Página do Contrato (Metadados);Management Number;Tabela (Célula Adjacente);"td:has(span:text-is(""Management Number"")) + td";"val = page.locator('td:has(span:text-is(""Management Number"")) + td').inner_text().strip()";Localiza a célula <td> com o rótulo e extrai o texto da célula <td> imediatamente seguinte (+ td).
+Página do Contrato (Metadados);Counterparty;Tabela (Célula Adjacente);"td:has(span:text-is(""Counterparty"")) + td";"val = page.locator('td:has(span:text-is(""Counterparty"")) + td').inner_text().strip()";Razão social / nome da contraparte contratada.
+Página do Contrato (Metadados);Contract Name;Tabela (Célula Adjacente);"td:has(span:text-is(""Contract Name"")) + td";"val = page.locator('td:has(span:text-is(""Contract Name"")) + td').inner_text().strip()";Nome ou título oficial do contrato.
+Página do Contrato (Metadados);Contract Type;Tabela (Célula Adjacente);"td:has(span:text-is(""Contract type"")) + td";"val = page.locator('td:has(span:text-is(""Contract type"")) + td').inner_text().strip()";Classificação / tipo do contrato.
+Página do Contrato (Metadados);Requester;Tabela (Célula Adjacente);"td:has(span:text-is(""Requester"")) + td";"val = page.locator('td:has(span:text-is(""Requester"")) + td').inner_text().strip()";Usuário / setor solicitante.
+Página do Contrato (Metadados);Contract Period;Tabela (Célula Adjacente);"td:has(span:text-is(""Contract Period"")) + td";"val = page.locator('td:has(span:text-is(""Contract Period"")) + td').inner_text().strip()";Data de início e término de vigência do contrato.
+Página do Contrato (Metadados);Contract Amount;Tabela (Célula Adjacente);"td:has(span:text-is(""Contract amount"")) + td";"val = page.locator('td:has(span:text-is(""Contract amount"")) + td').inner_text().strip()";Valor financeiro e moeda do contrato.
+Página do Contrato (Metadados);A person in charge of legal (team);Tabela (Célula Adjacente);"td:has(span:text-is(""A person in charge of legal (team)"")) + td";"val = page.locator('td:has(span:text-is(""A person in charge of legal (team)"")) + td').inner_text().strip()";Advogado ou membro da equipe jurídica responsável pela revisão.
+Página do Contrato (Status / Timeline);Review Request Msg;Status / Tag (Texto);"span:has-text(""I request a review of the contract."")";"page.locator('span:has-text(""I request a review of the contract."")').is_visible()";Mensagem indicativa de que o contrato foi submetido para revisão.
+Página do Contrato (Status / Timeline);Review Completed;Status / Comentário (Classe);".Comment_Content:has-text(""Completion of contract review"")";"page.locator('.Comment_Content:has-text(""Completion of contract review"")').is_visible()";Comentário no histórico indicando a conclusão da revisão jurídica.
+Página do Contrato (Status / Timeline);Legal Team Consent;Status / Comentário (Classe);".Comment_Content:has-text(""Legal Team Consent"")";"page.locator('.Comment_Content:has-text(""Legal Team Consent"")').is_visible()";Comentário indicando o consentimento/deferimento da equipe jurídica.
+Página do Contrato (Status / Timeline);Approval Completed;Status / Comentário (Classe);".Comment_Content:has-text(""Status changed to in Approval Completed"")";"page.locator('.Comment_Content:has-text(""Status changed to in Approval Completed"")').is_visible()";Comentário indicando transição para o status 'Approval Completed'.
+Página do Contrato (Status / Timeline);Processing Approval;Status / Comentário (Classe);".Comment_Content:has-text(""Status changed to in Processing Approval"")";"page.locator('.Comment_Content:has-text(""Status changed to in Processing Approval"")').is_visible()";Comentário indicando transição para o status 'Processing Approval'.
+Página do Contrato (Status / Timeline);Contract Expired;Status / Comentário (Classe);".Comment_Content:has-text(""Contract Expired"")";"page.locator('.Comment_Content:has-text(""Contract Expired"")').is_visible()";Comentário indicando que o contrato foi expirado (padronizado com os demais eventos da timeline).
