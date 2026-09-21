@@ -1,0 +1,97 @@
+services:
+  # ===========================================================================
+  # Serviço: Robô de Automação (RPA LMS - LG Electronics)
+  # ===========================================================================
+  rpa:
+    build:
+      context: ./ideal_raw_RPA
+      dockerfile: Dockerfile
+    container_name: lms_rpa
+    stdin_open: true
+    tty: true
+    # Alocação de memória compartilhada adequada para o Chromium evitar falhas de renderização
+    shm_size: '1gb'
+    ipc: host
+    env_file:
+      - path: .env
+        required: false
+      - path: ./ideal_raw_RPA/.env
+        required: false
+    environment:
+      - HEADLESS=true
+      - PYTHONUNBUFFERED=1
+    networks:
+      - lms_network
+    # Comando padrão (pode ser sobrescrito para executar 'python obter_otp.py' ou comandos manuais)
+    command: ["python", "login.py"]
+
+  # ===========================================================================
+  # [EXPANSÃO FUTURA] Serviço: Backend API (ex: FastAPI / Flask / Express)
+  # Descomente e adeque quando o serviço de API for criado no repositório.
+  # ===========================================================================
+  # api:
+  #   build:
+  #     context: ./api
+  #     dockerfile: Dockerfile
+  #   container_name: lms_backend_api
+  #   ports:
+  #     - "8000:8000"
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     - PORT=8000
+  #     - RPA_HOST=rpa
+  #   depends_on:
+  #     - rpa
+  #   networks:
+  #     - lms_network
+
+  # ===========================================================================
+  # [EXPANSÃO FUTURA] Serviço: Frontend Web (ex: React / Next.js / Vue)
+  # Descomente e adeque quando a interface Web for adicionada.
+  # ===========================================================================
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #   container_name: lms_frontend_web
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     - api
+  #   networks:
+  #     - lms_network
+
+  # ===========================================================================
+  # [EXPANSÃO FUTURA] Serviço: Banco de Dados (ex: PostgreSQL)
+  # Descomente e configure persistência de dados caso necessário.
+  # ===========================================================================
+  # db:
+  #   image: postgres:16-alpine
+  #   container_name: lms_postgres
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_DB: ${POSTGRES_DB:-lms_legal}
+  #     POSTGRES_USER: ${POSTGRES_USER:-postgres}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   networks:
+  #     - lms_network
+
+# =============================================================================
+# Redes compartilhadas entre os serviços
+# =============================================================================
+networks:
+  lms_network:
+    name: lms_network
+    driver: bridge
+
+# =============================================================================
+# Volumes persistentes (para bancos de dados ou logs)
+# =============================================================================
+# volumes:
+#   postgres_data:
+#     driver: local

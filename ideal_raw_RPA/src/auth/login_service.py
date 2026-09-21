@@ -56,7 +56,7 @@ def fazer_login_lms(
     personal_identification_code: Optional[str] = None,
     login_address: Optional[str] = None,
     lms_index: Optional[str] = None,
-    headless: bool = False,
+    headless: Optional[bool] = None,
     page: Optional[Page] = None,
     timeout: int = 30000,
 ) -> Page:
@@ -72,7 +72,7 @@ def fazer_login_lms(
         personal_identification_code: Código pessoal (usado na geração do OTP).
         login_address: URL do SSO LGE. Padrão: 'https://sso.lge.com/'.
         lms_index: URL da página inicial do LMS. Padrão: 'https://lms.lge.com/#/app/dashboard'.
-        headless: Executar o navegador em segundo plano (True) ou visível (False).
+        headless: Executar o navegador em segundo plano (True) ou visível (False). Se None, lê HEADLESS do .env.
         page: Instância opcional de Page do Playwright para reaproveitar sessão existente.
         timeout: Timeout máximo em milissegundos para os seletores e navegações.
 
@@ -80,6 +80,9 @@ def fazer_login_lms(
         Page: Objeto de página do Playwright autenticado e posicionado na página LMS_INDEX.
     """
     _carregar_variaveis_ambiente()
+
+    if headless is None:
+        headless = os.getenv("HEADLESS", "false").lower() in ("true", "1", "yes")
 
     user_id = user_id or os.getenv("USER_ID")
     password = password or os.getenv("PASSWORD")
@@ -108,11 +111,37 @@ def fazer_login_lms(
     if page is None:
         logger.info("Iniciando nova instância do navegador Playwright...")
         playwright_instance = sync_playwright().start()
-        browser: Browser = playwright_instance.chromium.launch(
-            headless=headless,
-            channel="chrome" if not headless else None,
-            args=["--disable-blink-features=AutomationControlled"],
-        )
+
+        launch_args = [
+            "--disable-blink-features=AutomationControlled",
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+        ]
+        channel = os.getenv("BROWSER_CHANNEL", "chrome" if not headless else None)
+        if channel in ("", "none", "None"):
+            channel = None
+
+        try:
+            browser: Browser = playwright_instance.chromium.launch(
+                headless=headless,
+                channel=channel,
+                args=launch_args,
+            )
+        except Exception as err:
+            if channel is not None:
+                logger.warning(
+                    f"Falha ao iniciar com canal '{channel}' ({err}). "
+                    "Tentando com o Chromium padrão do Playwright..."
+                )
+                browser = playwright_instance.chromium.launch(
+                    headless=headless,
+                    channel=None,
+                    args=launch_args,
+                )
+            else:
+                raise
+
         context: BrowserContext = browser.new_context(ignore_https_errors=True)
         context.on("page", _setup_dialog_handler)
 

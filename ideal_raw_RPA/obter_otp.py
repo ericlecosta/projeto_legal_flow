@@ -25,7 +25,10 @@ if __name__ == "__main__":
     print("=" * 50 + "\n")
 
     try:
-        otp = obter_otp_temporario(headless=False)
+        import os
+        headless_mode = os.getenv("HEADLESS", "false").lower() in ("true", "1", "yes")
+
+        otp = obter_otp_temporario(headless=headless_mode)
         print("\n" + "=" * 50)
         print(f"  SUCESSO! OTP TEMPORÁRIO OBTIDO: {otp}")
         print("=" * 50 + "\n")

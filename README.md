@@ -9,6 +9,9 @@ A estrutura é modular, projetada para acomodar o robô (RPA), bem como futuras 
 
 ```text
 hands-on-equipe1-legal/
+├── .github/
+│   └── workflows/
+│       └── ci-cd.yml            # Pipeline de CI/CD (GitHub Actions)
 ├── ideal_raw_RPA/           # Módulo principal do RPA (Playwright + OCR)
 │   ├── src/
 │   │   ├── __init__.py
@@ -19,6 +22,8 @@ hands-on-equipe1-legal/
 │   ├── obter_otp.py             # Script CLI para gerar/testar o OTP
 │   ├── login.py                 # Script CLI para validar o login completo
 │   ├── requirements.txt         # Dependências isoladas do RPA
+│   ├── Dockerfile               # Definição do contêiner Docker para o RPA
+│   ├── .dockerignore            # Regras de exclusão do build Docker do RPA
 │   ├── .env.example             # Modelo de variáveis de ambiente do RPA
 │   └── README.md                # Documentação detalhada do RPA
 │
@@ -29,6 +34,8 @@ hands-on-equipe1-legal/
 │   │   └── Mapeamento_Seletores_LMS.md
 │   └── videos/                  # Vídeos de demonstração (ignorados pelo git por tamanho)
 │
+├── docker-compose.yml           # Orquestrador de serviços (RPA e serviços futuros)
+├── .dockerignore                # Regras de exclusão do build Docker na raiz
 ├── .env.example                 # Modelo global de variáveis de ambiente
 ├── .gitignore                   # Regras para proteção de senhas, venv e arquivos pesados
 └── README.md                    # Documentação do projeto
@@ -73,6 +80,71 @@ LMS_CONTRACT_REVIEW_MANAGEMENT="https://lms.lge.com/#/app/contract/search"
   ```powershell
   python ideal_raw_RPA/login.py
   ```
+
+---
+
+## 🐳 Execução via Docker e Docker Compose
+
+O projeto conta com conteinerização completa para execução isolada do RPA e suporte à orquestração de múltiplos serviços.
+
+### 1. Pré-requisitos
+- [Docker](https://docs.docker.com/get-docker/)
+- [Docker Compose](https://docs.docker.com/compose/) (versão v2+)
+
+### 2. Configurar Variáveis de Ambiente
+Copie o arquivo de exemplo para `.env` na raiz do projeto e preencha suas credenciais:
+```bash
+cp .env.example .env
+```
+
+### 3. Construir e Executar o RPA com Docker Compose
+Para subir e executar o fluxo de login do RPA:
+```bash
+docker compose up --build rpa
+```
+
+### 4. Executar Comandos Específicos do RPA via Contêiner
+
+- **Obter apenas o OTP Temporário**:
+  ```bash
+  docker compose run --rm rpa python obter_otp.py
+  ```
+
+- **Executar o Login Completo**:
+  ```bash
+  docker compose run --rm rpa python login.py
+  ```
+
+- **Acessar o terminal interativo do contêiner**:
+  ```bash
+  docker compose run --rm rpa bash
+  ```
+
+### 5. Adicionando Novos Serviços (Backend, Frontend, Banco de Dados)
+O arquivo `docker-compose.yml` já está estruturado com a rede `lms_network` e blocos de modelo comentados para:
+- **Backend API** (FastAPI / Flask / Express)
+- **Frontend Web** (React / Next.js / Vue)
+- **Banco de Dados** (PostgreSQL)
+
+Para adicionar um novo serviço, basta criar a pasta correspondente (ex: `api/`), descomentar e ajustar o bloco no `docker-compose.yml`. Todos os serviços se comunicarão automaticamente através da rede `lms_network`.
+
+---
+
+## 🔄 Pipeline de CI/CD (GitHub Actions)
+
+O repositório possui uma esteira automatizada configurada em [.github/workflows/ci-cd.yml](.github/workflows/ci-cd.yml) que é disparada a cada `push` ou `pull_request` nas branches `main` e `develop` (ou manualmente via `workflow_dispatch`).
+
+### Etapas da Esteira:
+
+1. **Code Quality & Syntax Check (CI)**:
+   - Valida a integridade sintática de todos os arquivos Python (`py_compile`).
+   - Executa análise estática via `flake8` para detectar erros críticos de sintaxe e escopo.
+2. **Docker Build & Validation (CI)**:
+   - Valida a sintaxe do [docker-compose.yml](docker-compose.yml) (`docker compose config`).
+   - Constrói a imagem Docker do RPA com cache inteligente do GitHub Actions.
+   - Executa um **Smoke Test** no contêiner para validar se todas as dependências nativas (Playwright, OpenCV, ONNX, OCR) funcionam em runtime Linux sem erros de bibliotecas compartilhadas.
+3. **Continuous Delivery (CD - GHCR)**:
+   - Em commits integrados nas branches `main` e `develop`, a imagem é versionada e publicada automaticamente no **GitHub Container Registry (`ghcr.io`)** com tags correspondentes (`latest`, `develop`, `sha-<commit>`), pronta para uso pela equipe.
 
 ---
 

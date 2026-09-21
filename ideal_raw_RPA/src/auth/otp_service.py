@@ -53,7 +53,7 @@ def obter_otp_temporario(
     employee_number: Optional[str] = None,
     personal_identification_code: Optional[str] = None,
     login_address: Optional[str] = None,
-    headless: bool = False,
+    headless: Optional[bool] = None,
     max_captcha_retries: int = 5,
     timeout: int = 20000,
 ) -> str:
@@ -66,7 +66,7 @@ def obter_otp_temporario(
         employee_number: Matrícula do colaborador. Se None, lê de EMPLOYEE_NUMBER no .env.
         personal_identification_code: Código pessoal (YYYYMMDD). Se None, lê de PERSONAL_IDENTIFICATION_CODE no .env.
         login_address: URL inicial do SSO LGE. Padrão: 'https://sso.lge.com/'.
-        headless: Executar navegador em segundo plano (True) ou visível (False).
+        headless: Executar navegador em segundo plano (True) ou visível (False). Se None, lê HEADLESS do .env.
         max_captcha_retries: Quantidade máxima de tentativas para quebra do Captcha.
         timeout: Timeout máximo em milissegundos para operações de rede/seletor.
 
@@ -74,6 +74,9 @@ def obter_otp_temporario(
         str: Código OTP temporário gerado (ex: '8966881p').
     """
     _carregar_variaveis_ambiente()
+
+    if headless is None:
+        headless = os.getenv("HEADLESS", "false").lower() in ("true", "1", "yes")
 
     user_id = user_id or os.getenv("USER_ID")
     password = password or os.getenv("PASSWORD")
@@ -100,11 +103,35 @@ def obter_otp_temporario(
     ocr = ddddocr.DdddOcr(show_ad=False)
 
     with sync_playwright() as p:
-        browser: Browser = p.chromium.launch(
-            headless=headless,
-            channel="chrome" if not headless else None,
-            args=["--disable-blink-features=AutomationControlled"],
-        )
+        launch_args = [
+            "--disable-blink-features=AutomationControlled",
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+        ]
+        channel = os.getenv("BROWSER_CHANNEL", "chrome" if not headless else None)
+        if channel in ("", "none", "None"):
+            channel = None
+
+        try:
+            browser: Browser = p.chromium.launch(
+                headless=headless,
+                channel=channel,
+                args=launch_args,
+            )
+        except Exception as err:
+            if channel is not None:
+                logger.warning(
+                    f"Falha ao iniciar com canal '{channel}' ({err}). "
+                    "Tentando com o Chromium padrão do Playwright..."
+                )
+                browser = p.chromium.launch(
+                    headless=headless,
+                    channel=None,
+                    args=launch_args,
+                )
+            else:
+                raise
         context: BrowserContext = browser.new_context(ignore_https_errors=True)
         context.on("page", _setup_dialog_handler)
 

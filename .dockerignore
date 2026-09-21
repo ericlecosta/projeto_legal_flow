@@ -1,0 +1,35 @@
+# Ambientes Virtuais
+.venv/
+venv/
+env/
+
+# Compilados e Caches do Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Credenciais e Arquivos Sensíveis
+.env
+.env.*
+*.local
+
+# Mídias e Documentos Pesados
+docs/videos/
+*.mp4
+*.mkv
+*.mov
+*.avi
+
+# Logs e Arquivos Temporários de Imagens Capturadas
+*.log
+*.png
+*.jpg
+*.jpeg
+
+# Git e Editores
+.git/
+.gitignore
+.vscode/
+.idea/

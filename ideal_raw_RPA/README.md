@@ -32,6 +32,8 @@ ideal_raw_RPA/
 ├── obter_otp.py                 # CLI para execução/teste da extração do OTP
 ├── login.py                     # CLI para execução/teste do login completo
 ├── requirements.txt             # Dependências do RPA
+├── Dockerfile                   # Definição do contêiner Docker para o RPA
+├── .dockerignore                # Arquivos ignorados na geração da imagem Docker
 ├── .env.example                 # Exemplo de configuração de credenciais
 └── README.md                    # Este arquivo
 ```
@@ -95,3 +97,26 @@ page = fazer_login_lms(headless=False)
 # Ao final:
 fechar_sessao_lms(page)
 ```
+
+---
+
+## 🐳 Executando com Docker
+
+Você pode construir a imagem e executar o RPA diretamente com o Docker:
+
+### 1. Construir a Imagem Docker
+```bash
+docker build -t lms_rpa -f ideal_raw_RPA/Dockerfile ideal_raw_RPA/
+```
+
+### 2. Executar o Login Completo via Contêiner
+```bash
+docker run --rm --env-file .env lms_rpa
+```
+
+### 3. Executar Apenas a Obtenção do OTP
+```bash
+docker run --rm --env-file .env lms_rpa python obter_otp.py
+```
+*(Para orquestração completa e adição de múltiplos serviços, consulte o arquivo `docker-compose.yml` na raiz do projeto).*
+
