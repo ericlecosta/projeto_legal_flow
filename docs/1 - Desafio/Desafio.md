@@ -66,47 +66,7 @@ Para acompanhar essas etapas, a área mantém a planilha **Base Ideal.xlsx (aba 
 
 **Efeito:** Base Ideal desatualizada, trabalhosa de manter e sujeita a erros.
 
-```mermaid
-flowchart TB
-    subgraph MET[Método]
-        M1[Consulta manual contrato a contrato]
-        M2[Transcrição manual para o Excel]
-        M3[Sem padrão formal de De/Para]
-        M1 ~~~ M2 ~~~ M3
-    end
-    subgraph MAQ[Máquina]
-        MA1[LMS sem relatório de histórico]
-        MA2[Sem API ou integração disponível]
-        MA3[Login com SSO + OTP + Captcha]
-        MA1 ~~~ MA2 ~~~ MA3
-    end
-    subgraph MDO[Mão de obra]
-        MO1[Uma colaboradora concentra a atividade]
-        MO2[Fadiga por tarefa repetitiva]
-        MO1 ~~~ MO2
-    end
-    subgraph MAT[Material]
-        MT1[Relatório macro incompleto]
-        MT2[Histórico em texto livre na timeline]
-        MT1 ~~~ MT2
-    end
-    subgraph MED[Medida]
-        ME1[Sem indicador de qualidade da base]
-        ME2[Sem log das atualizações]
-        ME1 ~~~ ME2
-    end
-    subgraph AMB[Meio ambiente]
-        MB1[Demanda sob pressão de prazo]
-        MB2[Interface do LMS em inglês]
-        MB1 ~~~ MB2
-    end
-    MET --> E((Base Ideal desatualizada e com erros))
-    MAQ --> E
-    MDO --> E
-    MAT --> E
-    MED --> E
-    AMB --> E
-```
+![Diagrama de Ishikawa (6M)](ishikawa_6m.png)
 
 ### 4.3 Pareto de Esforço (estimativa por etapa do AS-IS)
 

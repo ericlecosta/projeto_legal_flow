@@ -88,20 +88,7 @@ A segunda linha da planilha ("Espelho sistema") registra o rótulo equivalente n
 
 ### 4.1 Matriz Poder × Interesse
 
-```text
-                         INTERESSE
-                 Baixo                     Alto
-          ┌─────────────────────────┬──────────────────────────┐
-   Alto   │  MANTER SATISFEITO      │  GERENCIAR DE PERTO      │
-          │  • TI LG Electronics    │  • Gestora do Jurídico   │
- PODER    │  • Dono do LMS (Matriz) │                          │
-          ├─────────────────────────┼──────────────────────────┤
-   Baixo  │  MONITORAR              │  MANTER INFORMADO        │
-          │                         │  • Analista de Contratos │
-          │                         │  • Orientador(a)         │
-          │                         │  • Equipe 1 – Legal      │
-          └─────────────────────────┴──────────────────────────┘
-```
+![Matriz Poder × Interesse](matriz_poder_interesse.png)
 
 ---
 
