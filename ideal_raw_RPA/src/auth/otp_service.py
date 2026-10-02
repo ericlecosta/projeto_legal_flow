@@ -174,9 +174,8 @@ def obter_otp_temporario(
             req_page.wait_for_load_state("domcontentloaded", timeout=timeout)
 
             req_page.evaluate("() => { window.langSetting = 'eng'; }")
-            req_page.wait_for_selector("#photo_imageE, #photo_imageK", state="visible", timeout=timeout)
-            img_selector = "#photo_imageE" if req_page.locator("#photo_imageE").is_visible() else "#photo_imageK"
-            captcha_img_element = req_page.locator(img_selector)
+            req_page.wait_for_selector("#photo_imageE:visible, #photo_imageK:visible", state="visible", timeout=timeout)
+            captcha_img_element = req_page.locator("#photo_imageE:visible, #photo_imageK:visible").first
 
             otp_code: Optional[str] = None
 
@@ -185,8 +184,9 @@ def obter_otp_temporario(
 
                 req_page.wait_for_function(
                     """() => {
-                        const img = document.querySelector('#photo_imageE') || document.querySelector('#photo_imageK');
-                        return img && img.complete && img.naturalWidth > 0;
+                        const imgs = [document.querySelector('#photo_imageE'), document.querySelector('#photo_imageK')];
+                        const visibleImg = imgs.find(img => img && img.offsetParent !== null && img.complete && img.naturalWidth > 0);
+                        return !!visibleImg;
                     }""",
                     timeout=timeout,
                 )
@@ -224,6 +224,10 @@ def obter_otp_temporario(
                     req_page.fill("#bizidE", employee_number)
                     req_page.fill("#pcodeE", personal_identification_code)
                     req_page.fill("#answerE", captcha_texto)
+                elif req_page.locator("#bizidK").is_visible():
+                    req_page.fill("#bizidK", employee_number)
+                    req_page.fill("#pcodeK", personal_identification_code)
+                    req_page.fill("#answerK", captcha_texto)
 
                 logger.info("Submetendo requisição e aguardando resposta da API...")
                 try:
