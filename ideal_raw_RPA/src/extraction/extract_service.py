@@ -21,7 +21,7 @@ class ExtractError(Exception):
 def extrair_relatorio_contratos(
     page: Page,
     subsidiary_code: str = "LGESP",
-    periodo: str = "Last 10 years",
+    periodo: str = "3",
     caminho_destino: Optional[str] = None,
     contract_search_url: Optional[str] = None,
     timeout: int = 30000,
@@ -55,7 +55,7 @@ def extrair_relatorio_contratos(
         # 0. Navega para a URL direta da tela de pesquisa e gestão de contratos
         logger.info(f"Navegando para a URL de busca de contratos: {contract_search_url}")
         page.goto(contract_search_url, wait_until="domcontentloaded", timeout=timeout)
-        time.sleep(2)  # Pausa breve para renderização dos componentes React
+        time.sleep(3)  # Pausa breve para renderização dos componentes React
 
         # =========================================================================
         # Passo 1: Seleção da Subsidiária (Subsidiary Code)
@@ -63,7 +63,7 @@ def extrair_relatorio_contratos(
         logger.info(f"Filtrando por Subsidiary Code: {subsidiary_code}...")
 
         # 1. Localiza o contêiner do React Select pelo texto
-        combo_container = page.locator(".react-select").filter(has_text="Subsidiary Code")
+        combo_container = page.locator(".react-select").filter(has_text="Subsidiary Code").first
         combo_container.wait_for(state="visible", timeout=timeout)
 
         # 2. Localiza o input de busca e ativa o foco
@@ -82,15 +82,17 @@ def extrair_relatorio_contratos(
         logger.info(f"Filtrando por período de data (Request Date): {periodo}...")
 
         # 1. Localiza o dropdown pelo texto e abre
-        dropdown_periodo = page.locator(".react-select").filter(has_text="Request Date")
+        dropdown_periodo = page.locator(".react-select").filter(has_text="Request Date").first
         dropdown_periodo.wait_for(state="visible", timeout=timeout)
         dropdown_periodo.click()
 
         # 2. Aguarda a opção aparecer e clica nela
-        opcao_periodo = page.locator(".select__option").filter(has_text=periodo)
+        opcao_periodo = page.locator(".select__option").filter(has_text=periodo).last
         opcao_periodo.wait_for(state="visible", timeout=timeout)
         opcao_periodo.click()
 
+        # 3. Aguarda que a tabela apareça
+        page.wait_for_selector('span.visually-hidden:has-text("Loading...")', state="detached", timeout=300000)
         # =========================================================================
         # Passo 3: Exportação / Download do Relatório
         # =========================================================================

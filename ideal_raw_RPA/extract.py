@@ -16,7 +16,7 @@ if str(current_dir) not in sys.path:
     sys.path.insert(0, str(current_dir))
 
 from src.auth import fazer_login_lms, fechar_sessao_lms, LoginError
-from src.extraction import extrair_relatorio_contratos, ExtractError
+from src.extraction.extract_service import extrair_relatorio_contratos, ExtractError
 
 if __name__ == "__main__":
     logging.basicConfig(
@@ -43,7 +43,7 @@ if __name__ == "__main__":
         caminho_relatorio = extrair_relatorio_contratos(
             page=page,
             subsidiary_code="LGESP",
-            periodo="Last 10 years",
+            periodo="3",
         )
 
         print("\n" + "=" * 55)
