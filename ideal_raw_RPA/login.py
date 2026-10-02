@@ -42,8 +42,8 @@ if __name__ == "__main__":
 
         # Mantém a janela visível por alguns segundos para conferência visual apenas em modo com interface
         if not headless_mode:
-            print("Navegador mantido aberto por 8 segundos para conferência visual...")
-            time.sleep(8)
+            print("Navegador mantido aberto por 15 segundos para conferência visual...")
+            time.sleep(15)
 
     except LoginError as e:
         print(f"\n[ERRO DE LOGIN] {e}\n", file=sys.stderr)

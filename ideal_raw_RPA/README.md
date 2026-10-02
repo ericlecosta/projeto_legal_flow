@@ -31,6 +31,7 @@ ideal_raw_RPA/
 │       └── login_service.py     # Fluxo de autenticação SSO e acesso ao LMS
 ├── obter_otp.py                 # CLI para execução/teste da extração do OTP
 ├── login.py                     # CLI para execução/teste do login completo
+├── gui.py                       # Interface gráfica para executar os fluxos e acompanhar os logs
 ├── requirements.txt             # Dependências do RPA
 ├── Dockerfile                   # Definição do contêiner Docker para o RPA
 ├── .dockerignore                # Arquivos ignorados na geração da imagem Docker
@@ -84,7 +85,15 @@ python ideal_raw_RPA/obter_otp.py
 python ideal_raw_RPA/login.py
 ```
 
-### 3. Importar como Módulo em Outros Scripts / APIs:
+### 3. Executar pela Interface Gráfica (CustomTkinter):
+```powershell
+python ideal_raw_RPA/gui.py
+```
+Permite escolher o fluxo (login completo ou somente OTP), ativar/desativar o modo headless,
+acompanhar os logs coloridos em tempo real, interromper a execução e salvar os logs em arquivo.
+Por padrão as credenciais do `.env` são mascaradas nos logs.
+
+### 4. Importar como Módulo em Outros Scripts / APIs:
 ```python
 from src.auth import fazer_login_lms, fechar_sessao_lms
 
