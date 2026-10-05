@@ -58,7 +58,7 @@ def fazer_login_lms(
     lms_index: Optional[str] = None,
     headless: Optional[bool] = None,
     page: Optional[Page] = None,
-    timeout: int = 30000,
+    timeout: int = 300000,
 ) -> Page:
     """
     Realiza o login no portal SSO da LG Electronics utilizando as credenciais e o OTP temporário,
@@ -181,7 +181,7 @@ def fazer_login_lms(
         logger.info(f"Navegando para a página do LMS: {lms_index}")
         page.goto(lms_index, wait_until="domcontentloaded", timeout=timeout)
 
-        time.sleep(3)
+        time.sleep(60)
         logger.info(f"Página posicionada com sucesso em: {page.url}")
 
         return page
