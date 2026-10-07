@@ -4,13 +4,14 @@ relatório consolidado (relatorio_contratos.xlsx).
 
 Fluxo:
 1. Lê a planilha baixada em extract_service.py
-2. Filtra linhas onde "Departament of the person in charge" contenha "mao"
+2. Filtra linhas onde "Department of the person in charge" contenha "mao"
 3. Para cada linha, abre a tela do contrato via elastic_search e coleta
    os campos detalhados (Management Number, Counterparty, status, etc.)
 4. Consolida tudo em contract_review_management.xlsx
 """
 
 import logging
+import re
 import time
 from pathlib import Path
 from typing import Optional
@@ -33,44 +34,60 @@ BASE_URL = "https://lms.lge.com/#/app/elastic_search?q={contract_number}"
 
 # Colunas "tabela" — extraídas via td adjacente ao label
 TABELA_FIELDS = {
-    "Management Number":                    "Management Number",
-    "Counterparty":                         "Counterparty",
-    "Contract Name":                        "Contract Name",
-    "Contract Type":                        "Contract type",
-    "Requester":                            "Requester",
-    "Contract Period":                      "Contract Period",
-    "Contract Amount":                      "Contract amount",
-    "A person in charge of legal (team)":   "A person in charge of legal (team)",
+    "Management Number":                  "Management Number",
+    "Counterparty":                       "Counterparty",
+    "Contract Name":                      "Contract Name",
+    "Contract Type":                      "Contract type",
+    "Requester":                          "Requester",
+    "Contract Period":                    "Contract Period",
+    "Contract Amount":                    "Contract amount",
+    "A person in charge of legal (team)": "A person in charge of legal (team)",
 }
 
-# Colunas "status/comentário" — extraídas via .Comment_Content ou span
+# Colunas "status" — True/False conforme visibilidade do seletor
 STATUS_FIELDS = {
-    "Review Request Msg":   ('span:has-text("I request a review of the contract.")', "span"),
-    "Review Completed":     ('.Comment_Content:has-text("Completion of contract review")', "comment"),
-    "Legal Team Consent":   ('.Comment_Content:has-text("Legal Team Consent")', "comment"),
-    "Approval Completed":   ('.Comment_Content:has-text("Status changed to in Approval Completed")', "comment"),
-    "Processing Approval":  ('.Comment_Content:has-text("Status changed to in Processing Approval")', "comment"),
-    "Contract Expired":     ('.Comment_Content:has-text("Contract Expired")', "comment"),
+    "Review Request Msg":  'span:has-text("I request a review of the contract.")',
+    "Review Completed":    '.Comment_Content:has-text("Completion of contract review")',
+    "Legal Team Consent":  '.Comment_Content:has-text("Legal Team Consent")',
+    "Approval Completed":  '.Comment_Content:has-text("Status changed to in Approval Completed")',
+    "Processing Approval": '.Comment_Content:has-text("Status changed to in Processing Approval")',
+    "Contract Expired":    '.Comment_Content:has-text("Contract Expired")',
 }
+
+# Colunas que são DATAS — extraídas como "o span.Date mais próximo
+# que precede o texto âncora na ordem do documento"
+DATE_FIELDS = {
+    "I requested a review of the contract.":          "I request a review of the contract.",
+    "Request Legal Review": "Status changed to in ‘Legal Review in Progress’",
+    "Review Completed": "Status changed to in ‘Review Completed’",
+    "Legal Team Consent in Progress": "Status changed to in ‘Legal Team Consent in Progress’",
+    "Legal Team Consent Completed":  "Status changed to in ‘Legal Team Consent Completed’",
+    "Processing Approval for Execution":  "Status changed to in ‘Processing Approval for Execution ’",
+    "Approval Completed":  "Status changed to in ‘Approval Completed ’",
+    "Effective Contract":  "Status changed to in ‘Effective Contract’",
+    "Biz-Drop Completed":  "Status changed to in ‘Biz-Drop Completed’",
+}
+
+_PROGRESS_STATE_RE = re.compile(r"Status changed to in\s+(.+)", re.IGNORECASE)
 
 # Nome das colunas no Excel final (na ordem desejada)
-COLUNAS_FINAIS = [
-    "Contract Number",
-    "Management Number",
-    "Counterparty",
-    "Contract Name",
-    "Contract Type",
-    "Requester",
-    "Contract Period",
-    "Contract Amount",
-    "A person in charge of legal (team)",
-    "Review Request Msg",
-    "Review Completed",
-    "Legal Team Consent",
-    "Approval Completed",
-    "Processing Approval",
-    "Contract Expired",
-]
+COLUNAS_FINAIS = []
+for nome in TABELA_FIELDS:
+    COLUNAS_FINAIS.append(nome)
+    if nome == "Requester":
+        COLUNAS_FINAIS.append("Progress State")
+    if nome == "Contract Period":
+        COLUNAS_FINAIS.append("I requested a review of the contract.")
+        COLUNAS_FINAIS.append("Request Legal Review")
+        COLUNAS_FINAIS.append("Review Completed")
+        COLUNAS_FINAIS.append("Legal Team Consent in Progress")
+        COLUNAS_FINAIS.append("Legal Team Consent Completed")
+        COLUNAS_FINAIS.append("Processing Approval for Execution")
+        COLUNAS_FINAIS.append("Approval Completed")
+        COLUNAS_FINAIS.append("Effective Contract")
+        COLUNAS_FINAIS.append("Biz-Drop Completed")
+
+COLUNAS_FINAIS.extend(STATUS_FIELDS)
 
 
 # ---------------------------------------------------------------------------
@@ -96,32 +113,79 @@ def _extrair_status(page: Page, selector: str) -> bool:
         return False
 
 
-def _abrir_contrato_via_busca(page: Page, contract_number: str, timeout: int) -> bool:
+def _extrair_progress_state(page: Page) -> str:
+    """
+    Localiza o último <span> cujo texto contenha 'Status changed to in ...'
+    e retorna apenas a parte variável {texto}.
+    """
+    try:
+        locator = page.locator('span:has-text("Status changed to in")').last
+        if locator.count() == 0:
+            return ""
+
+        texto_completo = " ".join(locator.inner_text().split())
+        match = _PROGRESS_STATE_RE.search(texto_completo)
+        return match.group(1).strip() if match else ""
+
+    except Exception as exc:
+        logger.warning(f"Falha ao extrair 'Progress State': {exc}")
+        return ""
+
+
+def _extrair_data_por_texto(page: Page, texto_ancora: str) -> str:
+    """
+    Encontra o texto-âncora na página e retorna o texto do span.Date
+    mais próximo que aparece ANTES dele na ordem do documento.
+
+    Usa normalize-space(.) para tolerar quebras de linha/espaços extras.
+    """
+    try:
+        # Escapa aspas duplas se houver (para o XPath não quebrar)
+        ancora = texto_ancora.replace('"', '\\"')
+
+        xpath = (
+            f'xpath=//span[contains(normalize-space(.), "{ancora}")]'
+            f'/preceding::span[contains(@class,"Date")][1]'
+        )
+
+        data_locator = page.locator(xpath).first
+        if data_locator.count() == 0:
+            return ""
+
+        return data_locator.inner_text().strip()
+
+    except Exception as exc:
+        logger.warning(f"Falha ao extrair data para '{texto_ancora}': {exc}")
+        return ""
+
+
+def _abrir_contrato_via_busca(page: Page, contract_number: str, timeout: int) -> Optional[Page]:
     """
     Navega até elastic_search, clica no link do contrato e abre em nova aba.
-    Retorna True em sucesso, False caso não encontre o link.
+    Retorna a nova Page em sucesso, None caso não encontre o link.
     """
     url = BASE_URL.format(contract_number=contract_number)
     logger.info(f"Abrindo contrato via busca: {contract_number}")
 
-    page.goto(url, wait_until="domcontentloaded", timeout=timeout)
-    time.sleep(2)  # render React
+    page.goto(url, wait_until="domcontentloaded", timeout=0)
+    time.sleep(2)
 
     # Link do contrato: <a href="#/app/contract/save?id=...">
     link_contrato = page.locator('a[href*="/app/contract/save?id="]').first
     try:
-        link_contrato.wait_for(state="visible", timeout=timeout)
+        link_contrato.wait_for(state="visible", timeout=0)
     except PlaywrightTimeoutError:
         logger.warning(f"Contrato {contract_number} não encontrado na busca.")
-        return False
+        return None
 
     # Abre em nova aba (target=_blank) e captura a nova Page
     with page.context.expect_page() as new_page_info:
         link_contrato.click()
 
     nova_page = new_page_info.value
-    nova_page.wait_for_load_state("domcontentloaded", timeout=timeout)
-    time.sleep(3)  # aguarda render do detalhe do contrato
+    nova_page.wait_for_load_state("domcontentloaded", timeout=0)
+    nova_page.wait_for_selector('span[class="ContractName_Label"]', timeout=0)
+    time.sleep(5)
 
     return nova_page
 
@@ -130,12 +194,16 @@ def _coletar_dados_contrato(page: Page, timeout: int) -> dict:
     """Extrai todos os campos do contrato da página de detalhe."""
     dados = {}
 
-    # Campos de tabela
+    # Campos de tabela + campos derivados (Progress State e datas)
     for coluna_excel, label_tela in TABELA_FIELDS.items():
         dados[coluna_excel] = _extrair_campo_tabela(page, label_tela)
+        if coluna_excel == "Requester":
+            dados["Progress State"] = _extrair_progress_state(page)
+            for coluna_data, texto_ancora in DATE_FIELDS.items():
+                dados[coluna_data] = _extrair_data_por_texto(page, texto_ancora)
 
-    # Campos de status
-    for coluna_excel, (selector, _tipo) in STATUS_FIELDS.items():
+    # Campos de status (bool)
+    for coluna_excel, selector in STATUS_FIELDS.items():
         dados[coluna_excel] = _extrair_status(page, selector)
 
     return dados
@@ -149,7 +217,7 @@ def extrair_contract_review_management(
     caminho_relatorio: str,
     caminho_destino: Optional[str] = None,
     filtro_departamento: str = "mao",
-    coluna_filtro: str = "Departament of the person in charge",
+    coluna_filtro: str = "Department of the person in charge",
     coluna_contract_number: str = "Contract Number",
     timeout: int = 30000,
 ) -> str:
@@ -171,9 +239,7 @@ def extrair_contract_review_management(
     """
     caminho_relatorio = Path(caminho_relatorio).resolve()
     if not caminho_relatorio.exists():
-        raise ExtractContractError(
-            f"Relatório não encontrado: {caminho_relatorio}"
-        )
+        raise ExtractContractError(f"Relatório não encontrado: {caminho_relatorio}")
 
     if not caminho_destino:
         caminho_destino = str(
@@ -187,20 +253,16 @@ def extrair_contract_review_management(
         logger.info(f"Lendo planilha: {caminho_relatorio}")
         df = pd.read_excel(caminho_relatorio, dtype=str).fillna("")
 
-        if coluna_filtro not in df.columns:
-            raise ExtractContractError(
-                f"Coluna '{coluna_filtro}' não encontrada. "
-                f"Colunas disponíveis: {list(df.columns)}"
-            )
-        if coluna_contract_number not in df.columns:
-            raise ExtractContractError(
-                f"Coluna '{coluna_contract_number}' não encontrada. "
-                f"Colunas disponíveis: {list(df.columns)}"
-            )
+        for coluna in (coluna_filtro, coluna_contract_number):
+            if coluna not in df.columns:
+                raise ExtractContractError(
+                    f"Coluna '{coluna}' não encontrada. "
+                    f"Colunas disponíveis: {list(df.columns)}"
+                )
 
         df_filtrado = df[
             df[coluna_filtro].str.contains(filtro_departamento, case=False, na=False)
-        ].copy()
+        ].copy().head(1)
 
         logger.info(
             f"Linhas após filtro '{filtro_departamento}' em '{coluna_filtro}': "
@@ -209,10 +271,7 @@ def extrair_contract_review_management(
 
         if df_filtrado.empty:
             logger.warning("Nenhuma linha corresponde ao filtro. Encerrando.")
-            # Gera planilha vazia mas com cabeçalho correto
-            pd.DataFrame(columns=COLUNAS_FINAIS).to_excel(
-                caminho_destino, index=False
-            )
+            pd.DataFrame(columns=COLUNAS_FINAIS).to_excel(caminho_destino, index=False)
             return caminho_destino
 
         # ------------------------------------------------------------------
@@ -222,7 +281,8 @@ def extrair_contract_review_management(
         total = len(df_filtrado)
 
         for idx, row in df_filtrado.iterrows():
-            contract_number = str(row[coluna_contract_number]).strip()
+            #contract_number = str(row[coluna_contract_number]).strip()
+            contract_number = 'C2026825327'
             if not contract_number:
                 logger.warning(f"Linha {idx} sem Contract Number. Pulando.")
                 continue
@@ -232,25 +292,19 @@ def extrair_contract_review_management(
             nova_page = None
             try:
                 nova_page = _abrir_contrato_via_busca(page, contract_number, timeout)
-                if not nova_page:
-                    resultados.append({
-                        "Contract Number": contract_number,
-                        **{c: "" for c in COLUNAS_FINAIS if c != "Contract Number"}
-                    })
+                if nova_page is None:
+                    resultados.append({c: "" for c in COLUNAS_FINAIS})
                     continue
 
-                dados = _coletar_dados_contrato(nova_page, timeout)
-                dados["Contract Number"] = contract_number
-                resultados.append(dados)
+                resultados.append(_coletar_dados_contrato(nova_page, timeout))
 
             except Exception as exc:
                 logger.error(f"Erro ao processar {contract_number}: {exc}")
                 resultados.append({
                     "Contract Number": contract_number,
-                    **{c: "" for c in COLUNAS_FINAIS if c != "Contract Number"}
+                    **{c: "" for c in COLUNAS_FINAIS},
                 })
             finally:
-                # Fecha a aba do contrato para não acumular
                 if nova_page:
                     try:
                         nova_page.close()
@@ -262,15 +316,13 @@ def extrair_contract_review_management(
         # ------------------------------------------------------------------
         df_resultado = pd.DataFrame(resultados, columns=COLUNAS_FINAIS)
 
-        # Garante diretório de saída
         Path(caminho_destino).parent.mkdir(parents=True, exist_ok=True)
-
         df_resultado.to_excel(caminho_destino, index=False)
+
         logger.info(
             f"Planilha consolidada salva em: {caminho_destino} "
             f"({len(df_resultado)} registros)"
         )
-
         return caminho_destino
 
     except ExtractContractError:

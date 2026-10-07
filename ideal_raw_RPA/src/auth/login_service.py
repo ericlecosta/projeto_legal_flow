@@ -181,7 +181,7 @@ def fazer_login_lms(
         logger.info(f"Navegando para a página do LMS: {lms_index}")
         page.goto(lms_index, wait_until="domcontentloaded", timeout=timeout)
 
-        time.sleep(60)
+        page.wait_for_selector('span[title="Contract"]', timeout=0)
         logger.info(f"Página posicionada com sucesso em: {page.url}")
 
         return page
