@@ -41,12 +41,13 @@
         </button>
         <button
           type="button"
-          disabled
-          [title]="e.status === 'running' ? 'Disponível quando o back-end estiver integrado' : 'A execução já foi encerrada'"
-          class="flex items-center gap-2 rounded-md border border-border-soft bg-surface px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+          (click)="stop()"
+          [disabled]="e.status !== 'running' || stopping()"
+          [title]="e.status === 'running' ? 'Interromper a execução em andamento' : 'A execução já foi encerrada'"
+          class="flex items-center gap-2 rounded-md border border-border-soft bg-surface px-4 py-2 text-sm font-semibold transition-colors duration-200 hover:bg-surface-elevated disabled:cursor-not-allowed disabled:opacity-50"
         >
           <span class="h-3 w-3 rounded-xs bg-danger" aria-hidden="true"></span>
-          Interromper
+          {{ stopping() && e.status === 'running' ? 'Interrompendo...' : 'Interromper' }}
         </button>
       </div>
     </header>

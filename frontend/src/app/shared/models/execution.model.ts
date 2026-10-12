@@ -53,7 +53,7 @@ export interface ExecutionFilters {
   flow: ExecutionFlow | 'all';
 }
 
-/** Formato de paginação padrão do Django REST Framework. */
+/** Formato de paginação da API (`{ count, results }`). */
 export interface Page<T> {
   count: number;
   results: T[];

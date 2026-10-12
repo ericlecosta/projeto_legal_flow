@@ -8,8 +8,11 @@ import {
   Execution,
   ExecutionDetail,
   ExecutionFilters,
+  ExecutionFlow,
   Page,
 } from '../../../shared/models/execution.model';
+
+const MOCK_ACTION_ERROR = 'Ação indisponível com dados simulados (environment.useMocks).';
 
 @Injectable({ providedIn: 'root' })
 export class ExecutionsService {
@@ -33,5 +36,17 @@ export class ExecutionsService {
       return detail ? of(detail).pipe(delay(200)) : throwError(() => new Error(`Execução ${id} não encontrada`));
     }
     return this.http.get<ExecutionDetail>(`${this.baseUrl}/${id}/`);
+  }
+
+  /** POST /api/executions/ — dispara uma execução manual. 409 se já houver uma em andamento. */
+  run(flow: ExecutionFlow, headless = true): Observable<ExecutionDetail> {
+    if (environment.useMocks) return throwError(() => new Error(MOCK_ACTION_ERROR));
+    return this.http.post<ExecutionDetail>(`${this.baseUrl}/`, { flow, headless });
+  }
+
+  /** POST /api/executions/:id/stop/ — pede a interrupção da execução em andamento. */
+  stop(id: number): Observable<void> {
+    if (environment.useMocks) return throwError(() => new Error(MOCK_ACTION_ERROR));
+    return this.http.post<void>(`${this.baseUrl}/${id}/stop/`, {});
   }
 }

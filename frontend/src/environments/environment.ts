@@ -1,6 +1,6 @@
 export const environment = {
   production: true,
-  /** Base da API REST do back-end Django (servida pelo Nginx no mesmo domínio). */
+  /** Base da API REST do back-end FastAPI (servida pelo Nginx no mesmo domínio). */
   apiUrl: '/api',
   /** Canal WebSocket para logs e status de execução em tempo real. */
   wsUrl: '/ws',

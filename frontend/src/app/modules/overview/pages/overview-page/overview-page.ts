@@ -1,13 +1,15 @@
 import { DecimalPipe } from '@angular/common';
-import { Component, computed, inject } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { catchError, map, of, startWith } from 'rxjs';
 
 import { ProgressBar } from '../../../../shared/components/progress-bar/progress-bar';
 import { Sparkline } from '../../../../shared/components/sparkline/sparkline';
 import { OperationalStatus, Overview } from '../../../../shared/models/overview.model';
 import { ClockPipe, DurationPipe, RelativeDateTimePipe } from '../../../../shared/pipes/format.pipes';
+import { ExecutionsService } from '../../../executions/services/executions.service';
 import { OverviewService } from '../../services/overview.service';
 
 type ViewState = { status: 'loading' } | { status: 'error' } | { status: 'ready'; data: Overview };
@@ -25,6 +27,11 @@ const STATUS_BANNER: Record<OperationalStatus, { title: string; border: string; 
 })
 export class OverviewPage {
   private readonly overview = inject(OverviewService);
+  private readonly executions = inject(ExecutionsService);
+  private readonly router = inject(Router);
+
+  protected readonly starting = signal(false);
+  protected readonly runError = signal<string | null>(null);
 
   protected readonly state = toSignal(
     this.overview.get().pipe(
@@ -46,4 +53,23 @@ export class OverviewPage {
   });
 
   protected readonly nextRun = computed(() => this.overviewData()?.upcomingRuns[0] ?? null);
+
+  /** Dispara uma execução manual e abre o detalhe dela para acompanhar os logs. */
+  protected runNow(): void {
+    this.starting.set(true);
+    this.runError.set(null);
+    this.executions.run('login_capture').subscribe({
+      next: (execution) => this.router.navigate(['/execucoes', execution.id]),
+      error: (error: unknown) => {
+        this.starting.set(false);
+        this.runError.set(
+          error instanceof HttpErrorResponse
+            ? (error.error?.detail ?? 'Não foi possível iniciar a execução.')
+            : error instanceof Error
+              ? error.message
+              : 'Não foi possível iniciar a execução.',
+        );
+      },
+    });
+  }
 }

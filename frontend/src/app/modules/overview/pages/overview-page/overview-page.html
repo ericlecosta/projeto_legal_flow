@@ -1,14 +1,20 @@
 <header class="mb-8 flex items-center justify-between gap-4">
   <h1 class="text-3xl font-semibold tracking-tight">Visão Geral</h1>
-  <button
-    type="button"
-    disabled
-    title="Disponível quando o back-end estiver integrado"
-    class="flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-on-primary shadow-sm transition-colors duration-200 hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-primary"
-  >
-    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" /></svg>
-    Executar Fluxo Agora
-  </button>
+  <div class="flex items-center gap-4">
+    @if (runError(); as message) {
+      <p class="text-sm text-danger" role="alert">{{ message }}</p>
+    }
+    <button
+      type="button"
+      (click)="runNow()"
+      [disabled]="starting()"
+      title="Login + Captura LMS (headless)"
+      class="flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-on-primary shadow-sm transition-colors duration-200 hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-primary"
+    >
+      <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" /></svg>
+      {{ starting() ? 'Iniciando...' : 'Executar Fluxo Agora' }}
+    </button>
+  </div>
 </header>
 
 @switch (state().status) {

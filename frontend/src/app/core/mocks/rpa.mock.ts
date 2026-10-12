@@ -1,5 +1,5 @@
 /**
- * Dados simulados usados enquanto o back-end Django não está disponível (environment.useMocks).
+ * Dados simulados usados quando a API FastAPI não está disponível (environment.useMocks).
  * Os horários são gerados a partir de "agora", para que "Hoje"/"Ontem" façam sentido em qualquer dia.
  */
 import {

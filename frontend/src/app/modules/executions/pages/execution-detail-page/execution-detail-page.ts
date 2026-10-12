@@ -1,7 +1,7 @@
 import { Component, ElementRef, afterRenderEffect, computed, inject, input, signal, viewChild } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import { catchError, map, of, startWith, switchMap } from 'rxjs';
+import { catchError, map, of, startWith, switchMap, takeWhile, timer } from 'rxjs';
 
 import { StatusBadge } from '../../../../shared/components/status-badge/status-badge';
 import { ExecutionDetail, FLOW_LABELS, LogLevel } from '../../../../shared/models/execution.model';
@@ -13,6 +13,9 @@ import {
   StepDurationPipe,
 } from '../../../../shared/pipes/format.pipes';
 import { ExecutionsService } from '../../services/executions.service';
+
+/** Intervalo de atualização enquanto a execução está em andamento. */
+const POLL_INTERVAL_MS = 2000;
 
 type ViewState = { status: 'loading' } | { status: 'error' } | { status: 'ready'; data: ExecutionDetail };
 
@@ -38,13 +41,17 @@ export class ExecutionDetailPage {
   protected readonly flowLabels = FLOW_LABELS;
   protected readonly logTags = LOG_TAGS;
   protected readonly autoScroll = signal(true);
+  protected readonly stopping = signal(false);
 
   private readonly console = viewChild<ElementRef<HTMLElement>>('console');
 
   protected readonly state = toSignal(
     toObservable(this.id).pipe(
       switchMap((id) =>
-        this.executions.get(Number(id)).pipe(
+        // Recarrega a cada 2s até a execução terminar (o último estado também é emitido).
+        timer(0, POLL_INTERVAL_MS).pipe(
+          switchMap(() => this.executions.get(Number(id))),
+          takeWhile((data) => data.status === 'running', true),
           map((data): ViewState => ({ status: 'ready', data })),
           catchError(() => of<ViewState>({ status: 'error' })),
           startWith<ViewState>({ status: 'loading' }),
@@ -79,5 +86,15 @@ export class ExecutionDetailPage {
     link.download = `rpa_execution_${execution.id}.log`;
     link.click();
     URL.revokeObjectURL(url);
+  }
+
+  protected stop(): void {
+    const execution = this.execution();
+    if (!execution || execution.status !== 'running') return;
+    // O polling em andamento traz o estado final (falha por interrupção) em até 2s.
+    this.stopping.set(true);
+    this.executions.stop(execution.id).subscribe({
+      error: () => this.stopping.set(false),
+    });
   }
 }
