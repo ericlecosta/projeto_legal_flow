@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LMS RPA Monitor - Overview</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <script src="theme.js"></script>
+  <link rel="stylesheet" href="theme.css">
+</head>
+<body class="bg-appBg text-fg h-screen flex overflow-hidden">
+
+  <!-- Sidebar Lateral -->
+  <aside class="w-16 border-r border-borderSoft flex flex-col items-center py-6 gap-8 shrink-0">
+    <a href="tela1.html" class="w-8 h-8 bg-brand rounded-sm flex items-center justify-center font-bold text-xs text-on-brand" aria-label="Visão Geral">LG</a>
+    <nav class="flex flex-col gap-6 text-fg-subtle" aria-label="Navegação principal">
+      <a href="tela1.html" class="text-brand" aria-current="page transition-colors" title="Visão Geral" aria-label="Visão Geral"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg></a>
+      <a href="tela3.html" class="hover:text-fg transition-colors" title="Execuções" aria-label="Execuções"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg></a>
+      <span class="opacity-40 cursor-not-allowed" title="Agendamentos (em breve)" aria-label="Agendamentos (em breve)" aria-disabled="true"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></span>
+    </nav>
+    <button type="button" data-theme-toggle class="mt-auto w-9 h-9 rounded-md border border-borderSoft text-fg-subtle hover:text-fg hover:bg-surfaceHover transition-colors flex items-center justify-center" title="Alternar tema claro/escuro" aria-label="Alternar tema claro/escuro">
+      <svg class="w-5 h-5 theme-icon-sun" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg><svg class="w-5 h-5 theme-icon-moon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+    </button>
+  </aside>
+
+  <!-- Conteúdo Principal -->
+  <main class="flex-1 p-10 overflow-y-auto">
+    
+    <!-- Topbar -->
+    <header class="flex justify-between items-center mb-8">
+      <div>
+        <h1 class="text-3xl font-semibold tracking-tight">Visão Geral</h1>
+      </div>
+      <button class="bg-brand hover:bg-brandHover text-white px-5 py-2.5 rounded-md font-semibold text-sm transition-colors shadow-sm flex items-center gap-2">
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" fill-rule="evenodd"></path></svg>
+        Executar Fluxo Agora
+      </button>
+    </header>
+
+    <!-- Status Banner -->
+    <div class="bg-surface border border-borderSoft border-l-4 border-l-success rounded-lg p-5 mb-8 flex justify-between items-center">
+      <div class="flex items-center gap-3">
+        <div class="w-3 h-3 bg-success rounded-full animate-pulse shadow-[0_0_8px_rgb(var(--success))]"></div>
+        <div>
+          <h2 class="font-semibold text-fg">SISTEMA OPERACIONAL</h2>
+          <p class="text-fg-muted text-sm mt-1">O RPA está rodando conforme o esperado. Próxima execução agendada para 18:00.</p>
+        </div>
+      </div>
+      <span class="text-xs font-mono text-fg-subtle">Última att: 14:50:22</span>
+    </div>
+
+    <p class="text-xs font-semibold tracking-widest uppercase text-fg-muted mb-4">Indicadores (Últimos 7 dias)</p>
+
+    <!-- Grid de KPIs -->
+    <div class="grid grid-cols-3 gap-6 mb-8">
+      <!-- KPI 1 -->
+      <div class="bg-surface hover:bg-surfaceHover border border-borderSoft rounded-xl p-6 transition-colors cursor-default">
+        <h3 class="text-xs font-semibold tracking-widest uppercase text-fg-muted mb-4">Running Rate</h3>
+        <div class="flex items-end gap-3 mb-2">
+          <span class="font-mono text-4xl text-fg font-semibold">92.5</span>
+          <span class="font-mono text-xl text-fg-subtle mb-1">%</span>
+        </div>
+        <div class="w-full bg-borderSoft rounded-full h-1.5 mb-3">
+          <div class="bg-success h-1.5 rounded-full" style="width: 92.5%"></div>
+        </div>
+        <p class="text-sm text-fg-subtle">Meta departamental: > 85%</p>
+      </div>
+
+      <!-- KPI 2 -->
+      <div class="bg-surface hover:bg-surfaceHover border border-borderSoft rounded-xl p-6 transition-colors cursor-default">
+        <h3 class="text-xs font-semibold tracking-widest uppercase text-fg-muted mb-4">Total de Execuções</h3>
+        <div class="font-mono text-4xl text-fg font-semibold mb-4">142</div>
+        <div class="flex gap-4 text-sm font-mono">
+          <span class="flex items-center gap-1 text-success">
+            <div class="w-2 h-2 rounded-full bg-success"></div> 130
+          </span>
+          <span class="flex items-center gap-1 text-danger">
+            <div class="w-2 h-2 rounded-full bg-danger"></div> 12
+          </span>
+        </div>
+        <p class="text-sm text-fg-subtle mt-3 border-t border-borderSoft pt-3">Tempo médio: <span class="font-mono text-fg-muted">02m 45s</span></p>
+      </div>
+
+      <!-- KPI 3 -->
+      <div class="bg-surface hover:bg-surfaceHover border border-borderSoft rounded-xl p-6 transition-colors cursor-default relative overflow-hidden">
+        <h3 class="text-xs font-semibold tracking-widest uppercase text-fg-muted mb-4">Volume Capturado</h3>
+        <div class="font-mono text-4xl text-fg font-semibold mb-2">12.405</div>
+        <p class="text-sm text-fg-subtle">Registros sincronizados</p>
+        
+        <!-- Sparkline falso via SVG para o protótipo -->
+        <svg class="absolute bottom-0 right-0 w-32 h-16 text-borderSoft" preserveAspectRatio="none" viewBox="0 0 100 50">
+          <path d="M0,50 L0,30 L20,40 L40,10 L60,25 L80,5 L100,20 L100,50 Z" fill="currentColor" fill-opacity="0.2"></path>
+          <path d="M0,30 L20,40 L40,10 L60,25 L80,5 L100,20" fill="none" stroke="currentColor" stroke-width="2"></path>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Grid Inferior (Gargalos e Agendamentos) -->
+    <div class="grid grid-cols-2 gap-6">
+      
+      <!-- Painel Esquerdo -->
+      <div class="bg-surface border border-borderSoft rounded-xl p-6">
+        <h3 class="text-xs font-semibold tracking-widest uppercase text-fg-muted mb-6">Falhas por Etapa (Gargalos)</h3>
+        
+        <div class="space-y-4">
+          <div>
+            <div class="flex justify-between text-sm mb-1">
+              <span class="text-fg">1. Login SSO</span>
+              <span class="font-mono text-fg-muted">60%</span>
+            </div>
+            <div class="w-full bg-borderSoft rounded-full h-2">
+              <div class="bg-danger h-2 rounded-full" style="width: 60%"></div>
+            </div>
+          </div>
+          <div>
+            <div class="flex justify-between text-sm mb-1">
+              <span class="text-fg">2. Resolução de Captcha</span>
+              <span class="font-mono text-fg-muted">30%</span>
+            </div>
+            <div class="w-full bg-borderSoft rounded-full h-2">
+              <div class="bg-fg-subtle h-2 rounded-full" style="width: 30%"></div>
+            </div>
+          </div>
+          <div>
+            <div class="flex justify-between text-sm mb-1">
+              <span class="text-fg">3. Acesso LMS</span>
+              <span class="font-mono text-fg-muted">10%</span>
+            </div>
+            <div class="w-full bg-borderSoft rounded-full h-2">
+              <div class="bg-fg-subtle h-2 rounded-full" style="width: 10%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Painel Direito -->
+      <div class="bg-surface border border-borderSoft rounded-xl p-6 flex flex-col">
+        <h3 class="text-xs font-semibold tracking-widest uppercase text-fg-muted mb-6">Próximas Execuções</h3>
+        
+        <ul class="space-y-4 flex-1">
+          <li class="flex items-start gap-4">
+            <div class="bg-borderSoft text-fg-muted rounded p-2 mt-0.5"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
+            <div>
+              <p class="text-sm font-semibold text-fg">Fechamento Diário</p>
+              <p class="text-xs font-mono text-fg-subtle mt-1">Hoje, 18:00 (Cron)</p>
+            </div>
+          </li>
+          <li class="flex items-start gap-4">
+            <div class="bg-borderSoft text-fg-muted rounded p-2 mt-0.5"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
+            <div>
+              <p class="text-sm font-semibold text-fg">Abertura D+1</p>
+              <p class="text-xs font-mono text-fg-subtle mt-1">Amanhã, 08:00 (Cron)</p>
+            </div>
+          </li>
+        </ul>
+        
+        <button class="w-full mt-4 py-2 border border-borderSoft hover:border-fg-subtle text-sm font-semibold text-fg-muted hover:text-fg rounded-md transition-colors">
+          Gerenciar Agendamentos
+        </button>
+      </div>
+
+    </div>
+  </main>
+</body>
+</html>

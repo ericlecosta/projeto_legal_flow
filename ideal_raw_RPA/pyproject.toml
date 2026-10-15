@@ -1,0 +1,10 @@
+[tool.black]
+line-length = 120
+target-version = ["py311"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+    "integration: testes que juntam mais de um módulo (fluxo completo, planilha real, HTTP)",
+]

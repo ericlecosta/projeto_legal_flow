@@ -18,11 +18,14 @@ permissions:
 
 jobs:
   # ===========================================================================
-  # 1. CI: Qualidade de Código e Checagem de Sintaxe Python
+  # 1. CI: Robô (ideal_raw_RPA) — black, flake8 e pytest
   # ===========================================================================
-  code-quality:
-    name: Code Quality & Syntax Check
+  rpa-tests:
+    name: RPA · black + pytest
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ideal_raw_RPA
     steps:
       - name: Checkout do código
         uses: actions/checkout@v4
@@ -32,32 +35,91 @@ jobs:
         with:
           python-version: '3.11'
           cache: 'pip'
-          cache-dependency-path: 'ideal_raw_RPA/requirements.txt'
+          cache-dependency-path: 'ideal_raw_RPA/requirements*.txt'
 
-      - name: Validar Sintaxe dos Arquivos Python (.py)
-        run: |
-          echo "Compilando arquivos Python para verificar integridade sintática..."
-          python -m py_compile $(find ideal_raw_RPA -name "*.py")
-          echo "✅ Todos os arquivos Python compilaram sem erros de sintaxe!"
-
-      - name: Instalar Ferramentas de Lint
+      - name: Instalar dependências
         run: |
           python -m pip install --upgrade pip
-          pip install flake8
+          pip install -r requirements-dev.txt flake8
 
-      - name: Executar Análise Estática com Flake8
-        run: |
-          echo "Checando erros críticos de sintaxe e nomes indefinidos..."
-          flake8 ideal_raw_RPA --count --select=E9,F63,F7,F82 --show-source --statistics
-          echo "Checando conformidade de estilo (não bloqueante)..."
-          flake8 ideal_raw_RPA --count --exit-zero --max-complexity=15 --max-line-length=120 --statistics
+      - name: Formatação (black)
+        run: black --check --diff .
+
+      - name: Erros críticos (flake8)
+        run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: Testes unitários e de integração (pytest)
+        run: pytest -v
 
   # ===========================================================================
-  # 2. CI/CD: Validação, Build do Docker e Publicação no GHCR
+  # 2. CI: API (backend) — black e pytest (inclui o fluxo do robô contra a API)
+  # ===========================================================================
+  api-tests:
+    name: API · black + pytest
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: 'backend/requirements*.txt'
+
+      - name: Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Formatação (black)
+        run: black --check --diff .
+
+      - name: Testes unitários e de integração (pytest)
+        run: pytest -v
+
+  # ===========================================================================
+  # 3. CI: Front-end (Angular) — tipos, Jest e build de produção
+  # ===========================================================================
+  frontend-tests:
+    name: Front · Jest + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: 'frontend/package-lock.json'
+
+      - name: Instalar dependências
+        run: npm ci --no-audit --no-fund
+
+      - name: Checagem de tipos dos testes
+        run: npm run typecheck:test
+
+      - name: Testes unitários e de integração (Jest + Babel)
+        run: npx jest --ci
+
+      - name: Build de produção
+        run: npx ng build --configuration production
+
+  # ===========================================================================
+  # 4. CI/CD: Validação, Build do Docker e Publicação no GHCR
   # ===========================================================================
   docker-pipeline:
     name: Docker Build, Test & Registry Push
-    needs: code-quality
+    needs: [rpa-tests, api-tests, frontend-tests]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout do repositório
@@ -115,7 +177,11 @@ jobs:
           import cv2
           import PIL
           import onnxruntime
-          print('✅ Sucesso: Todas as dependências (Playwright, OpenCV, ONNX, OCR) foram carregadas corretamente no contêiner!')
+          import pandas
+          import openpyxl
+          import requests
+          import src.pipeline
+          print('✅ Sucesso: dependências nativas e o fluxo do robô carregaram corretamente no contêiner!')
           "
 
       - name: Publicar Imagem no GHCR (Continuous Delivery)

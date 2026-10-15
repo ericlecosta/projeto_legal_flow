@@ -14,18 +14,39 @@ hands-on-equipe1-legal/
 │       └── ci-cd.yml            # Pipeline de CI/CD (GitHub Actions)
 ├── ideal_raw_RPA/           # Módulo principal do RPA (Playwright + OCR)
 │   ├── src/
-│   │   ├── __init__.py
-│   │   └── auth/
-│   │       ├── __init__.py      # Exportações do módulo de autenticação
-│   │       ├── otp_service.py   # Extração do OTP via autoatendimento e Captcha
-│   │       └── login_service.py # Login SSO e redirecionamento para o LMS
+│   │   ├── auth/                # OTP (autoatendimento + captcha) e login SSO no LMS
+│   │   ├── extraction/          # Download do relatório consolidado de contratos
+│   │   ├── extract_contract/    # Extração detalhada de cada contrato (timeline e datas)
+│   │   ├── reporting/           # Cliente da API do monitor + handler que envia os logs
+│   │   └── pipeline.py          # Fluxo completo em etapas, reportado ao monitor
+│   ├── tests/                   # pytest: unit/ e integration/
+│   ├── main.py                  # Execução completa (login → relatório → extração detalhada)
 │   ├── obter_otp.py             # Script CLI para gerar/testar o OTP
 │   ├── login.py                 # Script CLI para validar o login completo
-│   ├── requirements.txt         # Dependências isoladas do RPA
+│   ├── requirements.txt         # Dependências do RPA (requirements-dev.txt: pytest e black)
 │   ├── Dockerfile               # Definição do contêiner Docker para o RPA
 │   ├── .dockerignore            # Regras de exclusão do build Docker do RPA
 │   ├── .env.example             # Modelo de variáveis de ambiente do RPA
 │   └── README.md                # Documentação detalhada do RPA
+│
+├── backend/                     # API FastAPI (dashboard de monitoramento)
+│   ├── app/
+│   │   ├── api/routes/          # /api/overview/, /api/executions/, /api/contracts/, /api/rpa/, /api/health/
+│   │   ├── core/config.py       # Configurações via variáveis de ambiente
+│   │   ├── db/session.py        # Engine, sessão e Base do SQLAlchemy (PostgreSQL)
+│   │   ├── models/              # Modelos ORM (execuções, etapas, logs e contratos)
+│   │   ├── schemas/             # Schemas Pydantic (JSON em camelCase)
+│   │   ├── repositories/        # Consultas ao banco (listagem, detalhe, indicadores)
+│   │   ├── simulator/           # Seed do histórico fictício + simulador ao vivo do RPA
+│   │   └── main.py              # App FastAPI, CORS e rotas
+│   ├── tests/                   # pytest: unit/ e integration/ (SQLite)
+│   ├── requirements.txt
+│   └── Dockerfile
+│
+├── frontend/                    # Dashboard Angular (servido pelo Nginx no Docker)
+│   ├── src/
+│   ├── nginx.conf               # SPA fallback + proxy de /api para o FastAPI
+│   └── Dockerfile               # Multi-stage: Node (build) → Nginx
 │
 ├── docs/                        # Mapeamentos de seletores e documentações de apoio
 │   ├── seletores/
@@ -81,6 +102,12 @@ LMS_CONTRACT_REVIEW_MANAGEMENT="https://lms.lge.com/#/app/contract/search"
   python ideal_raw_RPA/login.py
   ```
 
+- **Para rodar o fluxo completo** (login, relatório e extração detalhada, registrados no monitor):
+  ```powershell
+  python ideal_raw_RPA/main.py
+  ```
+  As planilhas ficam em `downloads/`. Sem `API_URL` no `.env`, o robô não registra nada no monitor.
+
 ---
 
 ## 🐳 Execução via Docker e Docker Compose
@@ -120,13 +147,109 @@ docker compose up --build rpa
   docker compose run --rm rpa bash
   ```
 
-### 5. Adicionando Novos Serviços (Backend, Frontend, Banco de Dados)
-O arquivo `docker-compose.yml` já está estruturado com a rede `lms_network` e blocos de modelo comentados para:
-- **Backend API** (FastAPI / Flask / Express)
-- **Frontend Web** (React / Next.js / Vue)
-- **Banco de Dados** (PostgreSQL)
+> O serviço `rpa` está no profile `rpa`, então **não** sobe com um `docker compose up` simples (ele exige as credenciais LGE).
+> Para subir tudo junto, use `docker compose --profile rpa up --build`.
 
-Para adicionar um novo serviço, basta criar a pasta correspondente (ex: `api/`), descomentar e ajustar o bloco no `docker-compose.yml`. Todos os serviços se comunicarão automaticamente através da rede `lms_network`.
+---
+
+## 📊 Dashboard de Monitoramento (Angular + FastAPI + PostgreSQL)
+
+```bash
+cp .env.example .env        # se ainda não existir
+docker compose up --build
+```
+
+| Serviço    | Contêiner          | URL                                   |
+| :--------- | :----------------- | :------------------------------------ |
+| `frontend` | `lms_frontend_web` | http://localhost:8080                 |
+| `api`      | `lms_backend_api`  | http://localhost:8000/api/docs (Swagger) |
+| `db`       | `lms_postgres`     | `localhost:5432` (usuário/senha do `.env`) |
+
+O Nginx do front repassa `/api/*` para o contêiner `api`, então o navegador fala só com `localhost:8080`.
+
+### Dados fictícios e simulador do RPA
+
+Enquanto o RPA real não grava no banco, a API usa um simulador (`backend/app/simulator/`):
+
+- **Histórico:** na primeira subida, com o banco vazio, são criados ~30 dias de execuções fictícias
+  (agendadas às 08h, 12h e 18h, mais algumas manuais), com etapas, logs e falhas.
+- **Execução ao vivo:** o botão **Executar Fluxo Agora** (`POST /api/executions/`) roda um roteiro em tempo real,
+  gravando etapas e logs no banco. A tela de detalhe atualiza a cada 2 s, e **Interromper**
+  (`POST /api/executions/{id}/stop/`) cancela. Só uma execução roda por vez (`409` se já houver uma).
+- **Agenda:** com a API no ar, execuções "agendadas" são disparadas nos horários de `SIMULATOR_SCHEDULE`.
+
+Comandos úteis:
+
+```bash
+# Recriar o histórico do zero (ex.: 60 dias, com outra semente aleatória)
+docker compose exec api python -m app.simulator.seed --reset --days 60 --seed 7
+
+# Execuções ao vivo 5x mais rápidas
+SIMULATOR_SPEED=5 docker compose up -d api
+```
+
+As variáveis do simulador estão documentadas no `.env.example`.
+
+### Desenvolvimento local sem Docker
+
+```bash
+# API (porta 8000)
+cd backend
+python -m venv .venv && source .venv/bin/activate   # Windows: .\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+
+# Front (porta 4200), em outro terminal
+cd frontend
+npm ci
+npm start
+```
+
+O `ng serve` usa `environment.development.ts`, que aponta para `http://localhost:8000/api` (o CORS libera `localhost:4200`).
+Para trabalhar no front sem a API, mude `useMocks` para `true` nesse arquivo.
+
+### Robô real gravando no banco (`RPA_MODE=real`)
+
+O robô registra cada execução (etapas, logs e resultado) pelas rotas `/api/rpa/`, protegidas pelo cabeçalho
+`X-RPA-Token`. A rota de contratos (`PUT /api/rpa/contracts/`) e a tela **Contratos** já estão prontas, mas só recebem
+dados quando a consolidação da base Ideal Raw for ligada ao robô (em desenvolvimento por outra frente).
+
+1. No `.env` da raiz, defina `RPA_MODE=real` e um `RPA_API_TOKEN` longo
+   (`python -c "import secrets; print(secrets.token_urlsafe(32))"`).
+2. Suba a API, o banco e o front: `docker compose up --build -d`.
+3. Rode o robô: `docker compose run --rm rpa` (o padrão é `python main.py`, com `API_URL=http://api:8000/api`).
+4. Acompanhe a execução em **Execuções** (`http://localhost:8080/execucoes`).
+
+No modo real não há seed nem agenda fictícia, e o botão **Executar Fluxo Agora** responde que o disparo ainda é feito
+fora do painel. As planilhas geradas ficam em `ideal_raw_RPA/downloads/`.
+
+> Se o banco já tem o histórico fictício do modo simulado, recrie o volume antes de trocar para o modo real:
+> `docker compose down -v`.
+
+| Rota | Quem usa | O que faz |
+| :--- | :--- | :--- |
+| `POST /api/rpa/executions/` | robô | Abre a execução com as etapas |
+| `PATCH /api/rpa/executions/{id}/steps/{key}/` | robô | Atualiza uma etapa |
+| `POST /api/rpa/executions/{id}/logs/` | robô | Envia logs em lote |
+| `POST /api/rpa/executions/{id}/finish/` | robô | Finaliza (sucesso/falha, registros, erro) |
+| `PUT /api/rpa/contracts/` | robô (após a consolidação) | Grava a base Ideal Raw (upsert pelo número do contrato) |
+| `GET /api/contracts/` · `GET /api/contracts/summary/` | front | Lista, busca e resumo por status |
+
+---
+
+## 🧪 Testes
+
+| Parte | Ferramentas | Comando |
+| :--- | :--- | :--- |
+| RPA | pytest + black | `cd ideal_raw_RPA && pip install -r requirements-dev.txt && black --check . && pytest` |
+| API | pytest + black (SQLite, sem Postgres) | `cd backend && pip install -r requirements-dev.txt && black --check . && pytest` |
+| Front | Jest + Babel (TypeScript) | `cd frontend && npm ci && npm run typecheck:test && npm test` |
+
+- **Unitários** (`tests/unit/`, `*.spec.ts`): cliente da API, fluxo em etapas, extração (filtro e status), repositórios,
+  token, formatação e mocks do front.
+- **Integração** (`tests/integration/`, specs de serviço e página): o fluxo do robô com HTTP de verdade,
+  o robô falando com a API pelo `TestClient`, a API completa com banco, e a tela de Contratos com o `HttpClient`.
+- `pytest -m integration` roda só os de integração. O black usa `line-length = 120` (há um `pyproject.toml` em cada pasta e na raiz).
 
 ---
 
@@ -136,10 +259,11 @@ O repositório possui uma esteira automatizada configurada em [.github/workflows
 
 ### Etapas da Esteira:
 
-1. **Code Quality & Syntax Check (CI)**:
-   - Valida a integridade sintática de todos os arquivos Python (`py_compile`).
-   - Executa análise estática via `flake8` para detectar erros críticos de sintaxe e escopo.
-2. **Docker Build & Validation (CI)**:
+1. **Testes (CI)**, em paralelo:
+   - **RPA**: `black --check`, `flake8` (erros críticos) e `pytest`.
+   - **API**: `black --check` e `pytest` (inclui o fluxo do robô contra a API).
+   - **Front**: checagem de tipos dos testes, `jest` e build de produção.
+2. **Docker Build & Validation (CI)** — só roda se os testes passarem:
    - Valida a sintaxe do [docker-compose.yml](docker-compose.yml) (`docker compose config`).
    - Constrói a imagem Docker do RPA com cache inteligente do GitHub Actions.
    - Executa um **Smoke Test** no contêiner para validar se todas as dependências nativas (Playwright, OpenCV, ONNX, OCR) funcionam em runtime Linux sem erros de bibliotecas compartilhadas.

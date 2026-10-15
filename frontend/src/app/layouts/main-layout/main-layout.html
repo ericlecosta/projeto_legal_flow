@@ -1,0 +1,61 @@
+<aside class="flex w-16 shrink-0 flex-col items-center gap-8 border-r border-border-soft py-6">
+  <a
+    routerLink="/visao-geral"
+    class="flex h-8 w-8 items-center justify-center rounded-sm bg-primary text-xs font-bold text-on-primary"
+    aria-label="Visão Geral"
+  >LG</a>
+
+  <nav class="flex flex-col gap-6 text-fg-subtle" aria-label="Navegação principal">
+    <a
+      routerLink="/visao-geral"
+      routerLinkActive="text-primary!"
+      ariaCurrentWhenActive="page"
+      class="transition-colors duration-200 hover:text-fg"
+      title="Visão Geral"
+      aria-label="Visão Geral"
+    >
+      <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+    </a>
+    <a
+      routerLink="/execucoes"
+      routerLinkActive="text-primary!"
+      ariaCurrentWhenActive="page"
+      class="transition-colors duration-200 hover:text-fg"
+      title="Execuções"
+      aria-label="Execuções"
+    >
+      <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
+    </a>
+    <a
+      routerLink="/contratos"
+      routerLinkActive="text-primary!"
+      ariaCurrentWhenActive="page"
+      class="transition-colors duration-200 hover:text-fg"
+      title="Contratos"
+      aria-label="Contratos"
+    >
+      <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5zM14 3v5h5M9 13h6M9 17h4" /></svg>
+    </a>
+    <span class="cursor-not-allowed opacity-40" title="Agendamentos (em breve)" aria-label="Agendamentos (em breve)" aria-disabled="true">
+      <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+    </span>
+  </nav>
+
+  <button
+    type="button"
+    (click)="theme.toggle()"
+    class="mt-auto flex h-9 w-9 items-center justify-center rounded-md border border-border-soft text-fg-subtle transition-colors duration-200 hover:bg-surface-elevated hover:text-fg"
+    [attr.aria-label]="theme.theme() === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'"
+    [title]="theme.theme() === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'"
+  >
+    @if (theme.theme() === 'dark') {
+      <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+    } @else {
+      <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+    }
+  </button>
+</aside>
+
+<main class="flex min-w-0 flex-1 flex-col overflow-y-auto p-10">
+  <router-outlet />
+</main>
