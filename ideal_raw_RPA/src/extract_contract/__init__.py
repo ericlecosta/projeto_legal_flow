@@ -1,6 +1,15 @@
 from .extract_contract_service import (
-    extrair_contract_review_management,
+    COLUNAS_FINAIS,
     ExtractContractError,
+    extrair_contract_review_management,
+    filtrar_contratos,
+    parse_progress_state,
 )
 
-__all__ = ["extrair_contract_review_management", "ExtractContractError"]
+__all__ = [
+    "COLUNAS_FINAIS",
+    "ExtractContractError",
+    "extrair_contract_review_management",
+    "filtrar_contratos",
+    "parse_progress_state",
+]
