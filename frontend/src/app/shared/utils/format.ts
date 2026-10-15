@@ -10,9 +10,9 @@ export function formatDuration(seconds: number | null | undefined): string {
   return `${pad(minutes)}m ${pad(total % 60)}s`;
 }
 
-/** 12 → "12.0s" (durações curtas de etapas). */
-export function formatStepDuration(seconds: number): string {
-  return `${seconds.toFixed(1)}s`;
+/** 12 → "12.0s" (durações curtas de etapas); sem duração → "-". */
+export function formatStepDuration(seconds: number | null | undefined): string {
+  return seconds == null ? '-' : `${seconds.toFixed(1)}s`;
 }
 
 function startOfDay(date: Date): number {

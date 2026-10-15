@@ -80,14 +80,15 @@ def executar_fluxo(
     resultado = Resultado(status="running")
     page = None
     etapa_atual: str | None = None
+    inicio_etapa = time.monotonic()
 
     def etapa(key: str, acao: Callable[[], Any]) -> Any:
-        nonlocal etapa_atual
+        nonlocal etapa_atual, inicio_etapa
         etapa_atual = key
         cliente.atualizar_etapa(key, "running")
-        inicio = time.monotonic()
+        inicio_etapa = time.monotonic()
         valor = acao()
-        cliente.atualizar_etapa(key, "success", time.monotonic() - inicio)
+        cliente.atualizar_etapa(key, "success", time.monotonic() - inicio_etapa)
         ao_fim_da_etapa()
         return valor
 
@@ -121,7 +122,7 @@ def executar_fluxo(
         resultado.erro_mensagem = str(exc) or exc.__class__.__name__
         logger.error("%s: %s", resultado.erro_titulo, resultado.erro_mensagem)
         if etapa_atual:
-            cliente.atualizar_etapa(etapa_atual, "failed")
+            cliente.atualizar_etapa(etapa_atual, "failed", time.monotonic() - inicio_etapa)
     finally:
         if page is not None:
             try:

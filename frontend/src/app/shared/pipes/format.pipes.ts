@@ -11,7 +11,7 @@ export class DurationPipe implements PipeTransform {
 
 @Pipe({ name: 'stepDuration' })
 export class StepDurationPipe implements PipeTransform {
-  transform(seconds: number): string {
+  transform(seconds: number | null | undefined): string {
     return formatStepDuration(seconds);
   }
 }

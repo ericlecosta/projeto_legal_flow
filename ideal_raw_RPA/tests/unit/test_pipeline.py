@@ -18,6 +18,8 @@ class FakeCliente:
 
     def atualizar_etapa(self, key, status, duracao=None):
         self.eventos.append(("etapa", key, status))
+        self.duracoes = getattr(self, "duracoes", {})
+        self.duracoes[(key, status)] = duracao
 
     def enviar_contratos(self, contratos):
         self.contratos = contratos
@@ -90,6 +92,8 @@ def test_falha_na_extracao_marca_a_etapa_e_fecha_o_navegador():
 
     assert resultado.erro_titulo == "Falha na extração dos contratos"
     assert ("etapa", "contract_details", "failed") in cliente.eventos
+    # A etapa que falhou também leva a duração (a tela mostra "Falhou após X s")
+    assert cliente.duracoes[("contract_details", "failed")] >= 0
     assert fechados == ["page"]
 
 

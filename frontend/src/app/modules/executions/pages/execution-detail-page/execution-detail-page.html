@@ -88,14 +88,14 @@
                     <svg class="h-2.5 w-2.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" clip-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" /></svg>
                   </span>
                   <p class="text-sm font-semibold">{{ step.label }}</p>
-                  <p class="mt-1 font-mono text-xs text-fg-subtle">Duração: {{ step.durationSeconds! | stepDuration }}</p>
+                  <p class="mt-1 font-mono text-xs text-fg-subtle">Duração: {{ step.durationSeconds | stepDuration }}</p>
                 }
                 @case ('failed') {
                   <span class="absolute -left-[25px] flex h-4 w-4 items-center justify-center rounded-full bg-danger text-on-primary shadow-[0_0_12px_var(--danger)] ring-4 ring-surface" aria-hidden="true">
                     <svg class="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12" /></svg>
                   </span>
                   <p class="text-sm font-semibold text-danger">{{ step.label }}</p>
-                  <p class="mt-1 font-mono text-xs text-danger opacity-80">Falhou após {{ step.durationSeconds! | stepDuration }}</p>
+                  <p class="mt-1 font-mono text-xs text-danger opacity-80">Falhou após {{ step.durationSeconds | stepDuration }}</p>
                 }
                 @case ('running') {
                   <span class="absolute -left-[25px] h-4 w-4 animate-pulse rounded-full border-2 border-info bg-canvas" aria-hidden="true"></span>

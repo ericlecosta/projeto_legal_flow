@@ -20,6 +20,10 @@ describe('formatStepDuration', () => {
     expect(formatStepDuration(12)).toBe('12.0s');
     expect(formatStepDuration(0.5)).toBe('0.5s');
   });
+
+  it('não quebra quando a etapa não tem duração (ex.: falha reportada pelo robô)', () => {
+    expect(formatStepDuration(null)).toBe('-');
+  });
 });
 
 describe('formatRelativeDateTime', () => {
