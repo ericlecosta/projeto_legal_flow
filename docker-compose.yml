@@ -23,10 +23,20 @@ services:
     environment:
       - HEADLESS=true
       - PYTHONUNBUFFERED=1
+      # O robô registra a execução e grava os contratos na API do monitor
+      - API_URL=http://api:8000/api
+      - RPA_API_TOKEN=${RPA_API_TOKEN:-}
+    volumes:
+      # Planilhas baixadas e consolidadas ficam disponíveis no host
+      - ./ideal_raw_RPA/downloads:/app/downloads
+    depends_on:
+      api:
+        condition: service_healthy
     networks:
       - lms_network
-    # Comando padrão (pode ser sobrescrito para executar 'python obter_otp.py' ou comandos manuais)
-    command: ["python", "login.py"]
+    # Fluxo completo: login, relatório, extração detalhada e envio para a base.
+    # Pode ser sobrescrito para executar 'python login.py' ou 'python obter_otp.py'.
+    command: ["python", "main.py"]
 
   # ===========================================================================
   # Serviço: Banco de Dados (PostgreSQL)
@@ -64,7 +74,11 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-lms_legal}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:4200,http://localhost:8080}
-      # Simulador do RPA (dados fictícios enquanto o robô real não grava no banco)
+      # "real": só o robô grava execuções e contratos. "simulated": dados fictícios para demonstração.
+      RPA_MODE: ${RPA_MODE:-simulated}
+      # Token que o robô envia em X-RPA-Token. Vazio desativa as rotas /api/rpa/.
+      RPA_API_TOKEN: ${RPA_API_TOKEN:-}
+      # Simulador do RPA (usado só no modo "simulated")
       SEED_ON_STARTUP: ${SEED_ON_STARTUP:-true}
       SEED_DAYS: ${SEED_DAYS:-30}
       SIMULATOR_FAILURE_RATE: ${SIMULATOR_FAILURE_RATE:-0.12}

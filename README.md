@@ -14,14 +14,17 @@ hands-on-equipe1-legal/
 │       └── ci-cd.yml            # Pipeline de CI/CD (GitHub Actions)
 ├── ideal_raw_RPA/           # Módulo principal do RPA (Playwright + OCR)
 │   ├── src/
-│   │   ├── __init__.py
-│   │   └── auth/
-│   │       ├── __init__.py      # Exportações do módulo de autenticação
-│   │       ├── otp_service.py   # Extração do OTP via autoatendimento e Captcha
-│   │       └── login_service.py # Login SSO e redirecionamento para o LMS
+│   │   ├── auth/                # OTP (autoatendimento + captcha) e login SSO no LMS
+│   │   ├── extraction/          # Download do relatório consolidado de contratos
+│   │   ├── extract_contract/    # Extração detalhada de cada contrato (timeline e datas)
+│   │   ├── consolidation/       # Consolidação da base Ideal Raw (datas, período, valor, flags)
+│   │   ├── reporting/           # Cliente da API do monitor + handler que envia os logs
+│   │   └── pipeline.py          # Fluxo completo em etapas, reportado ao monitor
+│   ├── tests/                   # pytest: unit/ e integration/
+│   ├── main.py                  # Execução completa (login → relatório → contratos → base)
 │   ├── obter_otp.py             # Script CLI para gerar/testar o OTP
 │   ├── login.py                 # Script CLI para validar o login completo
-│   ├── requirements.txt         # Dependências isoladas do RPA
+│   ├── requirements.txt         # Dependências do RPA (requirements-dev.txt: pytest e black)
 │   ├── Dockerfile               # Definição do contêiner Docker para o RPA
 │   ├── .dockerignore            # Regras de exclusão do build Docker do RPA
 │   ├── .env.example             # Modelo de variáveis de ambiente do RPA
@@ -29,14 +32,15 @@ hands-on-equipe1-legal/
 │
 ├── backend/                     # API FastAPI (dashboard de monitoramento)
 │   ├── app/
-│   │   ├── api/routes/          # /api/overview/, /api/executions/, /api/health/
+│   │   ├── api/routes/          # /api/overview/, /api/executions/, /api/contracts/, /api/rpa/, /api/health/
 │   │   ├── core/config.py       # Configurações via variáveis de ambiente
 │   │   ├── db/session.py        # Engine, sessão e Base do SQLAlchemy (PostgreSQL)
-│   │   ├── models/              # Modelos ORM (execuções, etapas, logs)
+│   │   ├── models/              # Modelos ORM (execuções, etapas, logs e contratos)
 │   │   ├── schemas/             # Schemas Pydantic (JSON em camelCase)
 │   │   ├── repositories/        # Consultas ao banco (listagem, detalhe, indicadores)
 │   │   ├── simulator/           # Seed do histórico fictício + simulador ao vivo do RPA
 │   │   └── main.py              # App FastAPI, CORS e rotas
+│   ├── tests/                   # pytest: unit/ e integration/ (SQLite)
 │   ├── requirements.txt
 │   └── Dockerfile
 │
@@ -98,6 +102,12 @@ LMS_CONTRACT_REVIEW_MANAGEMENT="https://lms.lge.com/#/app/contract/search"
   ```powershell
   python ideal_raw_RPA/login.py
   ```
+
+- **Para rodar o fluxo completo** (login, relatório, extração detalhada e envio da base Ideal Raw para a API):
+  ```powershell
+  python ideal_raw_RPA/main.py
+  ```
+  Sem `API_URL` no `.env`, o robô gera as planilhas em `downloads/` e não registra nada no monitor.
 
 ---
 
@@ -199,6 +209,48 @@ npm start
 O `ng serve` usa `environment.development.ts`, que aponta para `http://localhost:8000/api` (o CORS libera `localhost:4200`).
 Para trabalhar no front sem a API, mude `useMocks` para `true` nesse arquivo.
 
+### Robô real gravando no banco (`RPA_MODE=real`)
+
+O robô registra cada execução (etapas, logs e resultado) e grava os contratos consolidados pelas rotas
+`/api/rpa/`, protegidas pelo cabeçalho `X-RPA-Token`.
+
+1. No `.env` da raiz, defina `RPA_MODE=real` e um `RPA_API_TOKEN` longo
+   (`python -c "import secrets; print(secrets.token_urlsafe(32))"`).
+2. Suba a API, o banco e o front: `docker compose up --build -d`.
+3. Rode o robô: `docker compose run --rm rpa` (o padrão é `python main.py`, com `API_URL=http://api:8000/api`).
+4. Acompanhe em **Execuções** e veja a base em **Contratos** (`http://localhost:8080/contratos`).
+
+No modo real não há seed nem agenda fictícia, e o botão **Executar Fluxo Agora** responde que o disparo ainda é feito
+fora do painel. As planilhas geradas ficam em `ideal_raw_RPA/downloads/`.
+
+> Se o banco já tem o histórico fictício do modo simulado, recrie o volume antes de trocar para o modo real:
+> `docker compose down -v`.
+
+| Rota | Quem usa | O que faz |
+| :--- | :--- | :--- |
+| `POST /api/rpa/executions/` | robô | Abre a execução com as etapas |
+| `PATCH /api/rpa/executions/{id}/steps/{key}/` | robô | Atualiza uma etapa |
+| `POST /api/rpa/executions/{id}/logs/` | robô | Envia logs em lote |
+| `POST /api/rpa/executions/{id}/finish/` | robô | Finaliza (sucesso/falha, registros, erro) |
+| `PUT /api/rpa/contracts/` | robô | Grava a base Ideal Raw (upsert pelo número do contrato) |
+| `GET /api/contracts/` · `GET /api/contracts/summary/` | front | Lista, busca e resumo por status |
+
+---
+
+## 🧪 Testes
+
+| Parte | Ferramentas | Comando |
+| :--- | :--- | :--- |
+| RPA | pytest + black | `cd ideal_raw_RPA && pip install -r requirements-dev.txt && black --check . && pytest` |
+| API | pytest + black (SQLite, sem Postgres) | `cd backend && pip install -r requirements-dev.txt && black --check . && pytest` |
+| Front | Jest + Babel (TypeScript) | `cd frontend && npm ci && npm run typecheck:test && npm test` |
+
+- **Unitários** (`tests/unit/`, `*.spec.ts`): consolidação da base, cliente da API, fluxo em etapas, repositórios,
+  token, formatação e mocks do front.
+- **Integração** (`tests/integration/`, specs de serviço e página): o fluxo do robô com planilha real e HTTP de verdade,
+  o robô falando com a API pelo `TestClient`, a API completa com banco, e a tela de Contratos com o `HttpClient`.
+- `pytest -m integration` roda só os de integração. O black usa `line-length = 120` (há um `pyproject.toml` em cada pasta e na raiz).
+
 ---
 
 ## 🔄 Pipeline de CI/CD (GitHub Actions)
@@ -207,10 +259,11 @@ O repositório possui uma esteira automatizada configurada em [.github/workflows
 
 ### Etapas da Esteira:
 
-1. **Code Quality & Syntax Check (CI)**:
-   - Valida a integridade sintática de todos os arquivos Python (`py_compile`).
-   - Executa análise estática via `flake8` para detectar erros críticos de sintaxe e escopo.
-2. **Docker Build & Validation (CI)**:
+1. **Testes (CI)**, em paralelo:
+   - **RPA**: `black --check`, `flake8` (erros críticos) e `pytest`.
+   - **API**: `black --check` e `pytest` (inclui o fluxo do robô contra a API).
+   - **Front**: checagem de tipos dos testes, `jest` e build de produção.
+2. **Docker Build & Validation (CI)** — só roda se os testes passarem:
    - Valida a sintaxe do [docker-compose.yml](docker-compose.yml) (`docker compose config`).
    - Constrói a imagem Docker do RPA com cache inteligente do GitHub Actions.
    - Executa um **Smoke Test** no contêiner para validar se todas as dependências nativas (Playwright, OpenCV, ONNX, OCR) funcionam em runtime Linux sem erros de bibliotecas compartilhadas.
