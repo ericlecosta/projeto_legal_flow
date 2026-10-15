@@ -1,0 +1,4 @@
+# Configuração do black para quem roda da raiz (ex.: "black backend ideal_raw_RPA").
+# Mantenha igual à de backend/pyproject.toml e ideal_raw_RPA/pyproject.toml.
+[tool.black]
+line-length = 120

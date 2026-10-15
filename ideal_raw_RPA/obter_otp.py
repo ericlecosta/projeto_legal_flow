@@ -14,11 +14,7 @@ import logging
 from src.auth.otp_service import obter_otp_temporario, OTPRetrievalError
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-        datefmt="%H:%M:%S"
-    )
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S")
 
     print("\n" + "=" * 50)
     print("      RPA LMS - OBTENÇÃO DE OTP TEMPORÁRIO")
@@ -26,6 +22,7 @@ if __name__ == "__main__":
 
     try:
         import os
+
         headless_mode = os.getenv("HEADLESS", "false").lower() in ("true", "1", "yes")
 
         otp = obter_otp_temporario(headless=headless_mode)

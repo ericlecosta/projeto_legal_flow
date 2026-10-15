@@ -1,0 +1,223 @@
+<header class="mb-6 flex shrink-0 flex-wrap items-end justify-between gap-4">
+  <div>
+    <h1 class="text-3xl font-semibold tracking-tight">Contratos</h1>
+    <p class="mt-2 text-sm text-fg-subtle">
+      Base Ideal Raw capturada pelo robô no Contract Review Management.
+    </p>
+  </div>
+  @if (summaryData(); as summary) {
+    @if (summary.lastUpdatedAt) {
+      <p class="text-sm text-fg-subtle" data-testid="last-update">
+        Atualizada em
+        <span class="font-mono text-fg-muted">{{ dateTime(summary.lastUpdatedAt) }}</span>
+        @if (summary.lastExecutionId) {
+          ·
+          <a
+            [routerLink]="['/execucoes', summary.lastExecutionId]"
+            class="font-mono text-fg-muted hover:text-fg"
+            >execução #{{ summary.lastExecutionId }}</a
+          >
+        }
+      </p>
+    }
+  }
+</header>
+
+<p
+  class="mb-6 shrink-0 rounded-md border border-border-soft bg-surface px-4 py-3 text-sm text-fg-muted"
+  role="note"
+>
+  O tratamento da base ainda está em andamento: campos que o robô não reconheceu aparecem como "-".
+</p>
+
+<!-- Resumo por status: também funciona como filtro -->
+@switch (summary().status) {
+  @case ('ready') {
+    @if (summaryData()!.total > 0) {
+      <div class="mb-6 flex shrink-0 flex-wrap gap-2" role="group" aria-label="Filtrar por status">
+        @for (item of summaryData()!.byProgressState; track item.progressState) {
+          <button
+            type="button"
+            (click)="toggleState(item.progressState)"
+            [attr.aria-pressed]="filters().progressState === (item.progressState ?? '')"
+            class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm transition-colors duration-200"
+            [class]="
+              filters().progressState === (item.progressState ?? '')
+                ? 'border-primary bg-surface-elevated text-fg'
+                : 'border-border-soft bg-surface text-fg-muted hover:text-fg'
+            "
+          >
+            {{ label(item.progressState) }}
+            <span class="font-mono text-xs text-fg-subtle">{{ item.count | number }}</span>
+          </button>
+        }
+      </div>
+    }
+  }
+  @case ('error') {
+    <p class="mb-6 shrink-0 text-sm text-danger" role="alert">
+      Não foi possível carregar o resumo da base.
+    </p>
+  }
+}
+
+<!-- Busca -->
+<div class="mb-6 flex shrink-0 flex-wrap items-center gap-4 text-sm">
+  <label
+    class="flex min-w-0 flex-1 items-center rounded-md border border-border-soft bg-surface px-4 transition-colors duration-200 focus-within:border-fg-subtle sm:max-w-md"
+  >
+    <span class="sr-only">Buscar contratos</span>
+    <svg
+      class="h-4 w-4 shrink-0 text-fg-subtle"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"
+      />
+    </svg>
+    <input
+      id="contract-search"
+      type="search"
+      class="min-w-0 flex-1 bg-transparent px-3 py-2 placeholder:text-fg-faint focus:outline-none"
+      placeholder="Número, contraparte, nome ou revisor"
+      [value]="searchInput()"
+      (input)="searchInput.set($any($event.target).value)"
+    />
+  </label>
+  @if (hasActiveFilters()) {
+    <button
+      type="button"
+      (click)="clearFilters()"
+      class="px-2 py-2 font-semibold text-fg-subtle transition-colors duration-200 hover:text-fg"
+    >
+      Limpar filtros
+    </button>
+  }
+</div>
+
+<!-- Tabela -->
+<div
+  class="flex min-h-[420px] flex-1 flex-col overflow-hidden rounded-xl border border-border-soft bg-surface-sunken"
+>
+  <div class="flex-1 overflow-x-auto">
+    <table class="w-full border-collapse text-left">
+      <thead>
+        <tr class="border-b border-border-soft bg-surface">
+          <th scope="col" class="eyebrow px-4 py-4 text-fg-subtle!">Contrato</th>
+          <th scope="col" class="eyebrow px-4 py-4 text-fg-subtle!">Contraparte</th>
+          <th scope="col" class="eyebrow px-4 py-4 text-fg-subtle!">Status</th>
+          <th scope="col" class="eyebrow px-4 py-4 text-fg-subtle!">Revisor</th>
+          <th scope="col" class="eyebrow px-4 py-4 text-fg-subtle!">Solicitado em</th>
+          <th scope="col" class="eyebrow px-4 py-4 text-fg-subtle!">Vigência</th>
+          <th scope="col" class="eyebrow px-4 py-4 text-right text-fg-subtle!">Valor</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-border-soft">
+        @switch (state().status) {
+          @case ('loading') {
+            @for (i of [1, 2, 3, 4, 5]; track i) {
+              <tr>
+                <td colspan="7" class="px-4 py-4">
+                  <div class="h-5 animate-pulse rounded-sm bg-surface"></div>
+                </td>
+              </tr>
+            }
+          }
+          @case ('error') {
+            <tr>
+              <td colspan="7" class="px-4 py-12 text-center text-sm text-danger" role="alert">
+                Não foi possível carregar os contratos.
+              </td>
+            </tr>
+          }
+          @case ('ready') {
+            @for (contract of result()!.results; track contract.id) {
+              <tr
+                class="transition-colors duration-200 hover:bg-surface-elevated"
+                data-testid="contract-row"
+              >
+                <td class="max-w-[16rem] px-4 py-4">
+                  <p class="truncate text-sm font-semibold" [title]="contract.contractName ?? ''">
+                    {{ contract.contractName ?? '-' }}
+                  </p>
+                  <p class="mt-1 font-mono text-xs text-fg-subtle">
+                    {{ contract.contractNumber }}
+                    @if (contract.contractType) {
+                      · {{ contract.contractType }}
+                    }
+                  </p>
+                </td>
+                <td class="max-w-[12rem] truncate px-4 py-4 text-sm text-fg-muted">
+                  {{ contract.counterparty ?? '-' }}
+                </td>
+                <td class="px-4 py-4">
+                  <span
+                    class="inline-flex w-max items-center rounded-md border px-2.5 py-1 text-xs font-semibold"
+                    [class]="tone(contract.progressState)"
+                    [title]="contract.progressState ?? ''"
+                  >
+                    {{ label(contract.progressState) }}
+                  </span>
+                </td>
+                <td class="px-4 py-4 text-sm whitespace-nowrap text-fg-muted">
+                  {{ contract.legalReviewer ?? '-' }}
+                </td>
+                <td class="px-4 py-4 font-mono text-sm whitespace-nowrap text-fg-muted">
+                  {{ date(contract.reviewRequestedAt) }}
+                </td>
+                <td class="px-4 py-4 font-mono text-sm whitespace-nowrap text-fg-muted">
+                  {{ period(contract.periodStart, contract.periodEnd) }}
+                </td>
+                <td class="px-4 py-4 text-right font-mono text-sm whitespace-nowrap">
+                  {{ amount(contract.amount, contract.currency) }}
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="7" class="px-4 py-12 text-center text-sm text-fg-subtle">
+                  @if (hasActiveFilters()) {
+                    Nenhum contrato encontrado para os filtros selecionados.
+                  } @else {
+                    A base ainda está vazia. Os contratos aparecem aqui quando a consolidação da
+                    base Ideal Raw for ligada ao robô.
+                  }
+                </td>
+              </tr>
+            }
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Paginação -->
+  <div
+    class="flex shrink-0 items-center justify-between border-t border-border-soft bg-surface p-4"
+  >
+    <span class="text-sm text-fg-subtle" aria-live="polite">{{ rangeLabel() }}</span>
+    <div class="flex gap-2">
+      <button
+        type="button"
+        (click)="goToPage(page() - 1)"
+        [disabled]="page() <= 1 || state().status !== 'ready'"
+        class="rounded-md border border-border-soft bg-surface-elevated px-3 py-1.5 text-sm transition-colors duration-200 hover:bg-border-soft disabled:cursor-not-allowed disabled:bg-canvas disabled:text-fg-subtle disabled:opacity-50"
+      >
+        Anterior
+      </button>
+      <button
+        type="button"
+        (click)="goToPage(page() + 1)"
+        [disabled]="page() >= totalPages() || state().status !== 'ready'"
+        class="rounded-md border border-border-soft bg-surface-elevated px-3 py-1.5 text-sm transition-colors duration-200 hover:bg-border-soft disabled:cursor-not-allowed disabled:bg-canvas disabled:text-fg-subtle disabled:opacity-50"
+      >
+        Próxima
+      </button>
+    </div>
+  </div>
+</div>

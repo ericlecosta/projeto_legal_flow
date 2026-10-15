@@ -1,0 +1,6 @@
+-r requirements.txt
+pytest>=8.0.0
+httpx>=0.27.0
+black>=24.0.0
+# Teste de integração que roda o cliente e o fluxo do robô (ideal_raw_RPA/src) contra esta API
+requests>=2.31.0
