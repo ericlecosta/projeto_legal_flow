@@ -11,13 +11,13 @@ import {
   LogEntry,
   Page,
   PERIOD_LABELS,
-  StepKey,
+  SimulatedStepKey,
 } from '../../shared/models/execution.model';
 import { OperationalStatus, Overview } from '../../shared/models/overview.model';
 
 const RUNNING_RATE_TARGET = 85;
 
-const STEPS: { key: StepKey; label: string }[] = [
+const STEPS: { key: SimulatedStepKey; label: string }[] = [
   { key: 'start_session', label: 'Iniciar Sessão' },
   { key: 'otp_captcha', label: 'Geração OTP e Captcha' },
   { key: 'sso_login', label: 'Login SSO' },
@@ -25,7 +25,7 @@ const STEPS: { key: StepKey; label: string }[] = [
   { key: 'contract_capture', label: 'Captura de Contratos' },
 ];
 
-const STEP_ERRORS: Record<StepKey, Omit<ExecutionError, 'screenshotUrl'>> = {
+const STEP_ERRORS: Record<SimulatedStepKey, Omit<ExecutionError, 'screenshotUrl'>> = {
   start_session: {
     title: 'Falha ao iniciar o navegador',
     message: 'O Chromium não pôde ser iniciado no runner. Verifique a memória compartilhada do contêiner.',
@@ -50,7 +50,7 @@ const STEP_ERRORS: Record<StepKey, Omit<ExecutionError, 'screenshotUrl'>> = {
 };
 
 /** Etapa onde cada falha simulada ocorreu. */
-const FAILED_AT = new Map<number, StepKey>();
+const FAILED_AT = new Map<number, SimulatedStepKey>();
 
 function at(daysAgo: number, hours: number, minutes = 0, seconds = 0): Date {
   const date = new Date();
@@ -93,7 +93,7 @@ function buildExecutions(): Execution[] {
   FAILED_AT.set(1038, 'otp_captcha');
 
   // Histórico mais antigo, determinístico: 3 execuções por dia (08h, 12h, 18h).
-  const failedSteps: StepKey[] = ['sso_login', 'otp_captcha', 'sso_login', 'lms_access'];
+  const failedSteps: SimulatedStepKey[] = ['sso_login', 'otp_captcha', 'sso_login', 'lms_access'];
   const older: Execution[] = [];
   for (let id = 1036; id >= 1000; id--) {
     const offset = 1036 - id; // 0 = ontem 18h
@@ -163,7 +163,7 @@ export function getExecutionMock(id: number): ExecutionDetail | null {
     if (step.status === 'skipped') return;
     logs.push({ timestamp: ts, level: 'info', message: `Iniciando etapa: ${step.label}` });
     if (step.status === 'failed') {
-      logs.push({ timestamp: execution.finishedAt!, level: 'error', message: STEP_ERRORS[step.key].title });
+      logs.push({ timestamp: execution.finishedAt!, level: 'error', message: STEP_ERRORS[step.key as SimulatedStepKey].title });
     }
   });
   if (execution.status === 'atypical') {

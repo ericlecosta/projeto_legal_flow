@@ -8,7 +8,7 @@ import {
   Execution,
   ExecutionDetail,
   ExecutionFilters,
-  ExecutionFlow,
+  SimulatedFlow,
   Page,
 } from '../../../shared/models/execution.model';
 
@@ -39,7 +39,7 @@ export class ExecutionsService {
   }
 
   /** POST /api/executions/ — dispara uma execução manual. 409 se já houver uma em andamento. */
-  run(flow: ExecutionFlow, headless = true): Observable<ExecutionDetail> {
+  run(flow: SimulatedFlow, headless = true): Observable<ExecutionDetail> {
     if (environment.useMocks) return throwError(() => new Error(MOCK_ACTION_ERROR));
     return this.http.post<ExecutionDetail>(`${this.baseUrl}/`, { flow, headless });
   }

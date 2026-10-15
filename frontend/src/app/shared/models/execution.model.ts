@@ -1,8 +1,12 @@
 export type ExecutionStatus = 'success' | 'failed' | 'atypical' | 'running';
 export type ExecutionTrigger = 'scheduled' | 'manual';
-export type ExecutionFlow = 'login_capture' | 'otp_only';
+export type SimulatedFlow = 'login_capture' | 'otp_only';
+/** `contract_extraction` é o fluxo do robô real (ideal_raw_RPA/src/pipeline.py). */
+export type ExecutionFlow = SimulatedFlow | 'contract_extraction';
 
-export type StepKey = 'start_session' | 'otp_captcha' | 'sso_login' | 'lms_access' | 'contract_capture';
+export type SimulatedStepKey = 'start_session' | 'otp_captcha' | 'sso_login' | 'lms_access' | 'contract_capture';
+export type RpaStepKey = 'lms_login' | 'report_download' | 'contract_details' | 'data_upload';
+export type StepKey = SimulatedStepKey | RpaStepKey;
 export type StepStatus = 'success' | 'failed' | 'running' | 'pending' | 'skipped';
 export type LogLevel = 'info' | 'warning' | 'error' | 'success';
 
@@ -62,6 +66,7 @@ export interface Page<T> {
 export const FLOW_LABELS: Record<ExecutionFlow, string> = {
   login_capture: 'Login + Captura LMS',
   otp_only: 'Somente OTP',
+  contract_extraction: 'Extração de contratos',
 };
 
 export const TRIGGER_LABELS: Record<ExecutionTrigger, string> = {

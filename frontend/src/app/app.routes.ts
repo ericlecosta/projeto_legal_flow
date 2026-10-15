@@ -13,6 +13,10 @@ export const routes: Routes = [
         loadChildren: () => import('./modules/overview/overview.routes').then((m) => m.OVERVIEW_ROUTES),
       },
       {
+        path: 'contratos',
+        loadChildren: () => import('./modules/contracts/contracts.routes').then((m) => m.CONTRACTS_ROUTES),
+      },
+      {
         path: 'execucoes',
         loadChildren: () =>
           import('./modules/executions/executions.routes').then((m) => m.EXECUTIONS_ROUTES),
