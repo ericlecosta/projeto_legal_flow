@@ -172,12 +172,5 @@ def test_payload_invalido_responde_422(client):
     assert resposta.status_code == 422
 
 
-def test_modo_real_nao_dispara_o_simulador_pelo_painel(client):
-    resposta = client.post("/api/executions/", json={"flow": "login_capture"})
-    assert resposta.status_code == 501
-    assert "modo real" in resposta.json()["detail"]
-    assert client.post("/api/executions/1/stop/").status_code == 501
-
-
 def test_health(client):
     assert client.get("/api/health/").json() == {"status": "ok", "database": "ok"}

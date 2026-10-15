@@ -6,6 +6,8 @@ contratos consolidados para o banco. Falhas de comunicação nunca derrubam o ro
 aviso no log local e a chamada devolve None.
 
 Sem API_URL configurada, o cliente fica desativado e o robô roda sozinho, como antes.
+Com RPA_EXECUTION_ID (definido pelo worker), o robô grava na execução que o painel abriu
+em vez de criar uma nova.
 """
 
 import logging
@@ -27,16 +29,20 @@ class MonitorClient:
         token: str | None = None,
         session: Any = None,
         timeout: float | None = 15.0,
+        execution_id: int | None = None,
     ) -> None:
         self.base_url = (base_url or "").rstrip("/")
         self.token = token or ""
         self.session = session if session is not None else requests.Session()
         self.timeout = timeout
-        self.execution_id: int | None = None
+        self.execution_id: int | None = execution_id
 
     @classmethod
     def from_env(cls) -> "MonitorClient":
-        return cls(os.getenv("API_URL"), os.getenv("RPA_API_TOKEN"))
+        execution_id = os.getenv("RPA_EXECUTION_ID")
+        return cls(
+            os.getenv("API_URL"), os.getenv("RPA_API_TOKEN"), execution_id=int(execution_id) if execution_id else None
+        )
 
     @property
     def ativo(self) -> bool:
@@ -44,7 +50,7 @@ class MonitorClient:
 
     # ------------------------------------------------------------------
 
-    def _request(self, method: str, path: str, payload: dict[str, Any]) -> dict[str, Any] | None:
+    def _request(self, method: str, path: str, payload: dict[str, Any] | None = None) -> dict[str, Any] | None:
         if not self.ativo:
             return None
         url = f"{self.base_url}{path}"
@@ -63,7 +69,11 @@ class MonitorClient:
 
     def iniciar_execucao(self, flow: str, trigger: str, etapas: list[tuple[str, str]]) -> int | None:
         body = {"flow": flow, "trigger": trigger, "steps": [{"key": k, "label": label} for k, label in etapas]}
-        data = self._request("POST", "/rpa/executions/", body)
+        if self.execution_id is not None:
+            # Execução aberta pelo painel: o robô só registra as etapas nela
+            data = self._request("POST", f"/rpa/executions/{self.execution_id}/start/", body)
+        else:
+            data = self._request("POST", "/rpa/executions/", body)
         self.execution_id = data.get("id") if data else None
         return self.execution_id
 
@@ -91,6 +101,19 @@ class MonitorClient:
             return
         body = {"status": status, "records": registros, "errorTitle": erro_titulo, "errorMessage": erro_mensagem}
         self._request("POST", f"/rpa/executions/{self.execution_id}/finish/", body)
+
+    # ------------------------------------------------------------------
+    # Worker: pedidos feitos pelo painel
+
+    def reivindicar_execucao(self) -> int | None:
+        """Pega o próximo pedido do painel. Devolve o ID da execução, ou None se a fila estiver vazia."""
+        data = self._request("POST", "/rpa/jobs/claim/")
+        return data.get("executionId") if data else None
+
+    def parada_solicitada(self, execution_id: int) -> bool:
+        """Se o painel pediu para interromper a execução. Falha de comunicação conta como não."""
+        data = self._request("GET", f"/rpa/jobs/{execution_id}/")
+        return bool(data and data.get("stopRequested"))
 
     def enviar_contratos(self, contratos: list[dict[str, Any]]) -> dict[str, Any] | None:
         """Envia os contratos consolidados (upsert pelo número). Devolve {received, created, updated}."""

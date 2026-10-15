@@ -41,6 +41,22 @@ def start_execution(db: Session, data: RpaExecutionStart) -> Execution:
     return execution
 
 
+def attach_execution(db: Session, execution_id: int, data: RpaExecutionStart) -> Execution:
+    """
+    O robô assume uma execução já aberta pelo painel (pedido do worker): grava as etapas que vai
+    percorrer e marca o início real, para a duração não contar o tempo na fila.
+    """
+    execution = _open_execution(db, execution_id)
+    execution.flow = data.flow
+    execution.started_at = _now()
+    execution.steps.clear()
+    db.flush()
+    for position, step in enumerate(data.steps):
+        execution.steps.append(ExecutionStep(position=position, key=step.key, label=step.label, status="pending"))
+    db.commit()
+    return execution
+
+
 def update_step(db: Session, execution_id: int, key: str, data: RpaStepUpdate) -> ExecutionStep | None:
     _open_execution(db, execution_id)
     step = db.scalar(select(ExecutionStep).where(ExecutionStep.execution_id == execution_id, ExecutionStep.key == key))

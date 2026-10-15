@@ -214,14 +214,16 @@ O robô registra cada execução (etapas, logs e resultado) pelas rotas `/api/rp
 `X-RPA-Token`. A rota de contratos (`PUT /api/rpa/contracts/`) e a tela **Contratos** já estão prontas, mas só recebem
 dados quando a consolidação da base Ideal Raw for ligada ao robô (em desenvolvimento por outra frente).
 
-1. No `.env` da raiz, defina `RPA_MODE=real` e um `RPA_API_TOKEN` longo
-   (`python -c "import secrets; print(secrets.token_urlsafe(32))"`).
-2. Suba a API, o banco e o front: `docker compose up --build -d`.
-3. Rode o robô: `docker compose run --rm rpa` (o padrão é `python main.py`, com `API_URL=http://api:8000/api`).
-4. Acompanhe a execução em **Execuções** (`http://localhost:8080/execucoes`).
+1. No `.env` da raiz, defina `RPA_MODE=real`, um `RPA_API_TOKEN` longo
+   (`python -c "import secrets; print(secrets.token_urlsafe(32))"`) e as credenciais LGE.
+2. Suba tudo: `docker compose up --build -d`. Isso inclui o `rpa-worker`, que fica de prontidão esperando os pedidos do painel.
+3. Clique em **Executar Fluxo Agora** na Visão Geral. O painel abre a execução, o worker roda o robô
+   (`main.py`, headless) e a tela de detalhe acompanha etapas e logs. **Interromper** encerra o robô e o navegador.
+4. Para rodar sem o painel: `docker compose run --rm rpa`.
 
-No modo real não há seed nem agenda fictícia, e o botão **Executar Fluxo Agora** responde que o disparo ainda é feito
-fora do painel. As planilhas geradas ficam em `ideal_raw_RPA/downloads/`.
+Só uma execução roda por vez, venha ela do painel ou do `docker compose run`. Se nenhum worker assumir o pedido
+em `RPA_CLAIM_TIMEOUT_SECONDS` (60 s por padrão), a execução falha com "Robô indisponível". Para ver os logs do
+worker, use `docker compose logs -f rpa-worker`. As planilhas geradas ficam em `ideal_raw_RPA/downloads/`.
 
 > Se o banco já tem o histórico fictício do modo simulado, recrie o volume antes de trocar para o modo real:
 > `docker compose down -v`.
@@ -232,6 +234,9 @@ fora do painel. As planilhas geradas ficam em `ideal_raw_RPA/downloads/`.
 | `PATCH /api/rpa/executions/{id}/steps/{key}/` | robô | Atualiza uma etapa |
 | `POST /api/rpa/executions/{id}/logs/` | robô | Envia logs em lote |
 | `POST /api/rpa/executions/{id}/finish/` | robô | Finaliza (sucesso/falha, registros, erro) |
+| `POST /api/rpa/jobs/claim/` | worker | Pega o próximo pedido do painel (`204` se a fila estiver vazia) |
+| `POST /api/rpa/executions/{id}/start/` | robô (via worker) | Assume a execução aberta pelo painel, com as etapas |
+| `GET /api/rpa/jobs/{id}/` | worker | Diz se o painel pediu para interromper |
 | `PUT /api/rpa/contracts/` | robô (após a consolidação) | Grava a base Ideal Raw (upsert pelo número do contrato) |
 | `GET /api/contracts/` · `GET /api/contracts/summary/` | front | Lista, busca e resumo por status |
 
