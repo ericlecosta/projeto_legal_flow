@@ -7,6 +7,9 @@ services:
       context: ./ideal_raw_RPA
       dockerfile: Dockerfile
     container_name: lms_rpa
+    # Fora do "docker compose up" padrão: exige credenciais LGE e roda sob demanda.
+    # Use "docker compose run --rm rpa ..." ou "docker compose --profile rpa up".
+    profiles: ["rpa"]
     stdin_open: true
     tty: true
     # Alocação de memória compartilhada adequada para o Chromium evitar falhas de renderização
@@ -26,60 +29,72 @@ services:
     command: ["python", "login.py"]
 
   # ===========================================================================
-  # [EXPANSÃO FUTURA] Serviço: Backend API (ex: FastAPI / Flask / Express)
-  # Descomente e adeque quando o serviço de API for criado no repositório.
+  # Serviço: Banco de Dados (PostgreSQL)
   # ===========================================================================
-  # api:
-  #   build:
-  #     context: ./api
-  #     dockerfile: Dockerfile
-  #   container_name: lms_backend_api
-  #   ports:
-  #     - "8000:8000"
-  #   env_file:
-  #     - .env
-  #   environment:
-  #     - PORT=8000
-  #     - RPA_HOST=rpa
-  #   depends_on:
-  #     - rpa
-  #   networks:
-  #     - lms_network
+  db:
+    image: postgres:16-alpine
+    container_name: lms_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-lms_legal}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      TZ: America/Manaus
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - lms_network
 
   # ===========================================================================
-  # [EXPANSÃO FUTURA] Serviço: Frontend Web (ex: React / Next.js / Vue)
-  # Descomente e adeque quando a interface Web for adicionada.
+  # Serviço: Backend API (FastAPI)
   # ===========================================================================
-  # frontend:
-  #   build:
-  #     context: ./frontend
-  #     dockerfile: Dockerfile
-  #   container_name: lms_frontend_web
-  #   ports:
-  #     - "3000:3000"
-  #   depends_on:
-  #     - api
-  #   networks:
-  #     - lms_network
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lms_backend_api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-lms_legal}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:4200,http://localhost:8080}
+      # Simulador do RPA (dados fictícios enquanto o robô real não grava no banco)
+      SEED_ON_STARTUP: ${SEED_ON_STARTUP:-true}
+      SEED_DAYS: ${SEED_DAYS:-30}
+      SIMULATOR_FAILURE_RATE: ${SIMULATOR_FAILURE_RATE:-0.12}
+      SIMULATOR_SPEED: ${SIMULATOR_SPEED:-1.0}
+      SIMULATOR_SCHEDULER_ENABLED: ${SIMULATOR_SCHEDULER_ENABLED:-true}
+      SIMULATOR_SCHEDULE: ${SIMULATOR_SCHEDULE:-08:00,12:00,18:00}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - lms_network
 
   # ===========================================================================
-  # [EXPANSÃO FUTURA] Serviço: Banco de Dados (ex: PostgreSQL)
-  # Descomente e configure persistência de dados caso necessário.
+  # Serviço: Frontend Web (Angular servido pelo Nginx, com proxy de /api)
   # ===========================================================================
-  # db:
-  #   image: postgres:16-alpine
-  #   container_name: lms_postgres
-  #   restart: unless-stopped
-  #   environment:
-  #     POSTGRES_DB: ${POSTGRES_DB:-lms_legal}
-  #     POSTGRES_USER: ${POSTGRES_USER:-postgres}
-  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-  #   ports:
-  #     - "5432:5432"
-  #   volumes:
-  #     - postgres_data:/var/lib/postgresql/data
-  #   networks:
-  #     - lms_network
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: lms_frontend_web
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - lms_network
 
 # =============================================================================
 # Redes compartilhadas entre os serviços
@@ -92,6 +107,6 @@ networks:
 # =============================================================================
 # Volumes persistentes (para bancos de dados ou logs)
 # =============================================================================
-# volumes:
-#   postgres_data:
-#     driver: local
+volumes:
+  postgres_data:
+    driver: local

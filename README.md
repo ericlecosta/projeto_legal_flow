@@ -27,6 +27,24 @@ hands-on-equipe1-legal/
 │   ├── .env.example             # Modelo de variáveis de ambiente do RPA
 │   └── README.md                # Documentação detalhada do RPA
 │
+├── backend/                     # API FastAPI (dashboard de monitoramento)
+│   ├── app/
+│   │   ├── api/routes/          # /api/overview/, /api/executions/, /api/health/
+│   │   ├── core/config.py       # Configurações via variáveis de ambiente
+│   │   ├── db/session.py        # Engine, sessão e Base do SQLAlchemy (PostgreSQL)
+│   │   ├── models/              # Modelos ORM (execuções, etapas, logs)
+│   │   ├── schemas/             # Schemas Pydantic (JSON em camelCase)
+│   │   ├── repositories/        # Consultas ao banco (listagem, detalhe, indicadores)
+│   │   ├── simulator/           # Seed do histórico fictício + simulador ao vivo do RPA
+│   │   └── main.py              # App FastAPI, CORS e rotas
+│   ├── requirements.txt
+│   └── Dockerfile
+│
+├── frontend/                    # Dashboard Angular (servido pelo Nginx no Docker)
+│   ├── src/
+│   ├── nginx.conf               # SPA fallback + proxy de /api para o FastAPI
+│   └── Dockerfile               # Multi-stage: Node (build) → Nginx
+│
 ├── docs/                        # Mapeamentos de seletores e documentações de apoio
 │   ├── seletores/
 │   │   ├── Mapeamento_Seletores_Formatado.csv
@@ -120,13 +138,66 @@ docker compose up --build rpa
   docker compose run --rm rpa bash
   ```
 
-### 5. Adicionando Novos Serviços (Backend, Frontend, Banco de Dados)
-O arquivo `docker-compose.yml` já está estruturado com a rede `lms_network` e blocos de modelo comentados para:
-- **Backend API** (FastAPI / Flask / Express)
-- **Frontend Web** (React / Next.js / Vue)
-- **Banco de Dados** (PostgreSQL)
+> O serviço `rpa` está no profile `rpa`, então **não** sobe com um `docker compose up` simples (ele exige as credenciais LGE).
+> Para subir tudo junto, use `docker compose --profile rpa up --build`.
 
-Para adicionar um novo serviço, basta criar a pasta correspondente (ex: `api/`), descomentar e ajustar o bloco no `docker-compose.yml`. Todos os serviços se comunicarão automaticamente através da rede `lms_network`.
+---
+
+## 📊 Dashboard de Monitoramento (Angular + FastAPI + PostgreSQL)
+
+```bash
+cp .env.example .env        # se ainda não existir
+docker compose up --build
+```
+
+| Serviço    | Contêiner          | URL                                   |
+| :--------- | :----------------- | :------------------------------------ |
+| `frontend` | `lms_frontend_web` | http://localhost:8080                 |
+| `api`      | `lms_backend_api`  | http://localhost:8000/api/docs (Swagger) |
+| `db`       | `lms_postgres`     | `localhost:5432` (usuário/senha do `.env`) |
+
+O Nginx do front repassa `/api/*` para o contêiner `api`, então o navegador fala só com `localhost:8080`.
+
+### Dados fictícios e simulador do RPA
+
+Enquanto o RPA real não grava no banco, a API usa um simulador (`backend/app/simulator/`):
+
+- **Histórico:** na primeira subida, com o banco vazio, são criados ~30 dias de execuções fictícias
+  (agendadas às 08h, 12h e 18h, mais algumas manuais), com etapas, logs e falhas.
+- **Execução ao vivo:** o botão **Executar Fluxo Agora** (`POST /api/executions/`) roda um roteiro em tempo real,
+  gravando etapas e logs no banco. A tela de detalhe atualiza a cada 2 s, e **Interromper**
+  (`POST /api/executions/{id}/stop/`) cancela. Só uma execução roda por vez (`409` se já houver uma).
+- **Agenda:** com a API no ar, execuções "agendadas" são disparadas nos horários de `SIMULATOR_SCHEDULE`.
+
+Comandos úteis:
+
+```bash
+# Recriar o histórico do zero (ex.: 60 dias, com outra semente aleatória)
+docker compose exec api python -m app.simulator.seed --reset --days 60 --seed 7
+
+# Execuções ao vivo 5x mais rápidas
+SIMULATOR_SPEED=5 docker compose up -d api
+```
+
+As variáveis do simulador estão documentadas no `.env.example`.
+
+### Desenvolvimento local sem Docker
+
+```bash
+# API (porta 8000)
+cd backend
+python -m venv .venv && source .venv/bin/activate   # Windows: .\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+
+# Front (porta 4200), em outro terminal
+cd frontend
+npm ci
+npm start
+```
+
+O `ng serve` usa `environment.development.ts`, que aponta para `http://localhost:8000/api` (o CORS libera `localhost:4200`).
+Para trabalhar no front sem a API, mude `useMocks` para `true` nesse arquivo.
 
 ---
 

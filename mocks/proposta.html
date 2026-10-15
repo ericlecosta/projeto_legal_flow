@@ -1,0 +1,1495 @@
+<title>Proposta LMS RPA Monitor</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<style>
+/* Layout: sidebar fixa de 64px + área principal com faixa de protótipo no topo; vira barra superior no celular.
+   Tokens iguais aos do Figma (coleções Theme / Dark e Theme / Light) e ao mocks/theme.css. Dark-first. */
+:root {
+  --app-bg: #0d0d0d;
+  --surface: #1e1e1e;
+  --surface-hover: #252525;
+  --surface-sunken: #141414;
+  --console: #0d0d0d;
+  --border: #303030;
+  --fg: #f5f5f5;
+  --fg-muted: #9e9e9e;
+  --fg-subtle: #757575;
+  --fg-faint: #616161;
+  --brand: #e7194a;
+  --brand-hover: #d11442;
+  --on-brand: #ffffff;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ff3d6a;
+  --danger-tint: rgba(231, 25, 74, .14);
+  --success-tint: rgba(34, 197, 94, .12);
+  --warning-tint: rgba(245, 158, 11, .13);
+  --track: #303030;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181;
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --app-bg: #f5f5f5; --surface: #ffffff; --surface-hover: #f5f5f5; --surface-sunken: #fafafa; --console: #ffffff;
+    --border: #e0e0e0; --fg: #141414; --fg-muted: #424242; --fg-subtle: #616161; --fg-faint: #757575;
+    --success: #15803d; --warning: #b45309; --danger: #d11442;
+    --danger-tint: rgba(209, 20, 66, .08); --success-tint: rgba(21, 128, 61, .09); --warning-tint: rgba(180, 83, 9, .1);
+    --track: #e8e8e8; --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --app-bg: #f5f5f5; --surface: #ffffff; --surface-hover: #f5f5f5; --surface-sunken: #fafafa; --console: #ffffff;
+  --border: #e0e0e0; --fg: #141414; --fg-muted: #424242; --fg-subtle: #616161; --fg-faint: #757575;
+  --success: #15803d; --warning: #b45309; --danger: #d11442;
+  --danger-tint: rgba(209, 20, 66, .08); --success-tint: rgba(21, 128, 61, .09); --warning-tint: rgba(180, 83, 9, .1);
+  --track: #e8e8e8; --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { background: var(--app-bg); color: var(--fg); font-family: var(--font-sans); font-size: 14px; line-height: 1.45; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--fg-muted); margin: 0; }
+h1 { font-size: 30px; font-weight: 600; letter-spacing: -.01em; margin: 0; text-wrap: balance; }
+h2 { font-size: 18px; font-weight: 600; margin: 0; }
+p { margin: 0; }
+
+/* ---------- Shell ---------- */
+.app { display: flex; height: 100%; }
+.sidebar { width: 64px; flex-shrink: 0; border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; padding-block: 24px; gap: 32px; background: var(--app-bg); }
+.logo { width: 32px; height: 32px; background: var(--brand); color: var(--on-brand); border-radius: 3px; display: grid; place-items: center; font-weight: 700; font-size: 12px; }
+.nav { display: flex; flex-direction: column; gap: 22px; }
+.nav a { color: var(--fg-subtle); display: grid; place-items: center; width: 36px; height: 36px; border-radius: 8px; position: relative; transition: color .15s, background .15s; }
+.nav a:hover { color: var(--fg); background: var(--surface-hover); }
+.nav a[aria-current="page"] { color: var(--brand); }
+.nav a .lock { position: absolute; right: 2px; bottom: 2px; width: 12px; height: 12px; color: var(--fg-faint); }
+.nav svg, .side-bottom svg { width: 22px; height: 22px; }
+.side-bottom { margin-top: auto; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.icon-btn { width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--fg-subtle); display: grid; place-items: center; }
+.icon-btn:hover { color: var(--fg); background: var(--surface-hover); }
+.icon-btn svg { width: 18px; height: 18px; }
+.avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--surface-hover); border: 1px solid var(--border); font-size: 12px; font-weight: 600; display: grid; place-items: center; color: var(--fg); }
+.theme-moon { display: none; }
+:root[data-theme="light"] .theme-sun { display: none; }
+:root[data-theme="light"] .theme-moon { display: block; }
+
+.main { flex: 1; min-width: 0; overflow-y: auto; display: flex; flex-direction: column; }
+.proto-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 40px; border-bottom: 1px dashed var(--border); background: var(--surface-sunken); font-size: 13px; color: var(--fg-muted); }
+.proto-bar strong { color: var(--fg); font-weight: 600; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; padding: 2px; gap: 2px; background: var(--surface); }
+.seg button { border: 0; background: transparent; padding: 5px 12px; border-radius: 6px; font-size: 13px; font-weight: 500; color: var(--fg-muted); }
+.seg button:hover { color: var(--fg); }
+.seg button[aria-pressed="true"] { background: var(--surface-hover); color: var(--fg); box-shadow: inset 0 0 0 1px var(--border); }
+.view { padding: 40px; display: flex; flex-direction: column; gap: 32px; }
+.page-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px; }
+.page-head .sub { color: var(--fg-muted); margin-top: 6px; max-width: 68ch; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+
+/* ---------- Componentes ---------- */
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 6px; font-weight: 600; font-size: 14px; border: 1px solid var(--border); background: var(--surface); color: var(--fg); transition: background .15s, border-color .15s; white-space: nowrap; }
+.btn:hover:not(:disabled) { background: var(--surface-hover); }
+.btn svg { width: 16px; height: 16px; }
+.btn-primary { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
+.btn-primary:hover:not(:disabled) { background: var(--brand-hover); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn-sm { padding: 5px 10px; font-size: 13px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; min-width: 0; }
+.card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+.card-head .hint { font-size: 12px; color: var(--fg-subtle); }
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; border: 1px solid currentColor; }
+.badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.badge.failed { color: var(--danger); background: var(--danger-tint); }
+.badge.success { color: var(--success); background: var(--success-tint); }
+.badge.running { color: var(--warning); background: var(--warning-tint); }
+.badge.running::before { animation: pulse 1.2s infinite; }
+.badge.cancelled { color: var(--fg-muted); background: var(--surface-hover); }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 500; background: var(--surface-hover); border: 1px solid var(--border); color: var(--fg-muted); white-space: nowrap; }
+.chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--fg-subtle); }
+.chip.ok .dot { background: var(--success); } .chip.warn .dot { background: var(--warning); } .chip.bad .dot { background: var(--danger); } .chip.brand .dot { background: var(--brand); }
+.live { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--success); }
+.live .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 0 var(--success); animation: ring 1.6s infinite; }
+.live.idle { color: var(--fg-subtle); } .live.idle .dot { background: var(--fg-faint); animation: none; }
+@keyframes pulse { 50% { opacity: .3; } }
+@keyframes ring { 0% { box-shadow: 0 0 0 0 rgba(34,197,94,.5); } 100% { box-shadow: 0 0 0 8px rgba(34,197,94,0); } }
+@media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
+.input, select.input { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; font-size: 13px; min-width: 0; }
+.input::placeholder { color: var(--fg-faint); }
+.filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.toast { position: fixed; right: 24px; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--success); border-radius: 8px; padding: 12px 16px; max-width: min(380px, calc(100vw - 32px)); box-shadow: 0 8px 24px rgba(0,0,0,.35); font-size: 13px; z-index: 20; transform: translateY(12px); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; }
+.toast.show { opacity: 1; transform: none; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--fg-subtle); padding: 12px 16px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+td { padding: 12px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: var(--surface-hover); }
+tr.fresh td { animation: fresh 2.4s ease-out; }
+@keyframes fresh { from { background: var(--warning-tint); } to { background: transparent; } }
+.who { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+.who .avatar { width: 28px; height: 28px; font-size: 11px; }
+.muted { color: var(--fg-muted); } .subtle { color: var(--fg-subtle); }
+.locked { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 64px 24px; border: 1px dashed var(--border); border-radius: 12px; color: var(--fg-muted); }
+.locked svg { width: 28px; height: 28px; color: var(--fg-subtle); }
+
+/* ---------- Login ---------- */
+body.on-login .sidebar, body.on-login .proto-bar { display: none; }
+.login { min-height: 100%; display: grid; place-items: center; padding: 40px 16px; background:
+  radial-gradient(600px 300px at 50% 0%, var(--danger-tint), transparent 70%), var(--app-bg); }
+.login-card { width: min(420px, 100%); display: flex; flex-direction: column; gap: 24px; }
+.login-card .logo { width: 44px; height: 44px; font-size: 15px; }
+.login-card h1 { font-size: 26px; }
+.login-card .btn { justify-content: center; padding: 12px 16px; width: 100%; }
+.sso-steps { display: grid; gap: 10px; font-size: 13px; color: var(--fg-muted); }
+.sso-steps div { display: flex; gap: 10px; align-items: center; }
+.sso-steps svg { width: 16px; height: 16px; color: var(--success); flex-shrink: 0; }
+.roles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.roles div { border: 1px solid var(--border); border-radius: 8px; padding: 10px; font-size: 12px; color: var(--fg-subtle); }
+.roles strong { display: block; color: var(--fg); font-size: 13px; margin-bottom: 2px; }
+
+/* ---------- Indicadores ---------- */
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+.kpi .value { font-family: var(--font-mono); font-size: 34px; font-weight: 600; margin: 14px 0 6px; font-variant-numeric: tabular-nums; }
+.kpi .value small { font-size: 18px; color: var(--fg-subtle); margin-left: 4px; }
+.delta { font-size: 12px; font-family: var(--font-mono); }
+.delta.up { color: var(--success); } .delta.down { color: var(--danger); } .delta.flat { color: var(--fg-subtle); }
+.delta span { color: var(--fg-subtle); font-family: var(--font-sans); }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.chart { position: relative; }
+.chart svg { display: block; width: 100%; overflow: visible; }
+.chart .grid { stroke: var(--border); stroke-width: 1; stroke-dasharray: 2 4; }
+.chart .grid.base { stroke-dasharray: none; }
+.chart .goal { stroke: var(--fg-subtle); stroke-width: 1.5; stroke-dasharray: 6 5; }
+.chart .series { fill: none; stroke: var(--brand); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .pt { fill: var(--brand); stroke: var(--surface); stroke-width: 2; }
+.chart .cross { stroke: var(--fg-faint); stroke-width: 1; }
+.chart text { fill: var(--fg-subtle); font-family: var(--font-mono); font-size: 11px; }
+.tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px; box-shadow: 0 6px 18px rgba(0,0,0,.3); white-space: nowrap; z-index: 5; }
+.tip b { font-family: var(--font-mono); font-weight: 600; }
+.legend { display: flex; gap: 16px; font-size: 12px; color: var(--fg-muted); flex-wrap: wrap; }
+.legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; background: var(--brand); }
+.legend i.dash { background: none; border-top: 2px dashed var(--fg-subtle); height: 0; }
+.hbars { display: grid; gap: 14px; }
+.hbar { display: grid; gap: 6px; cursor: default; }
+.hbar .row { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+.hbar .row .mono { color: var(--fg-muted); }
+.hbar .track { height: 8px; background: var(--track); border-radius: 4px; overflow: hidden; }
+.hbar .fill { height: 100%; border-radius: 4px; background: var(--fg-subtle); transition: width .4s; }
+.hbar.top .fill { background: var(--brand); }
+.hbar:hover .row span:first-child { color: var(--fg); text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 3px; }
+.client-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px; }
+.client-head .sub { color: var(--fg-muted); max-width: 70ch; margin-top: 6px; }
+.client-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+.ph { border: 1px dashed var(--fg-faint); background: transparent; display: flex; flex-direction: column; gap: 12px; }
+.ph .tag { align-self: flex-start; font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--warning); border: 1px solid currentColor; border-radius: 4px; padding: 2px 6px; }
+.ph .value { font-family: var(--font-mono); font-size: 28px; font-weight: 600; }
+.ph .value small { font-size: 14px; color: var(--fg-subtle); }
+.ph .note { font-size: 12px; color: var(--fg-subtle); margin-top: auto; }
+.mini { display: grid; gap: 6px; font-size: 12px; }
+.mini div { display: grid; grid-template-columns: 54px 1fr 34px; gap: 8px; align-items: center; }
+.mini .track { height: 6px; background: var(--track); border-radius: 3px; overflow: hidden; }
+.mini .fill { height: 100%; background: var(--fg-subtle); border-radius: 3px; }
+.add-card { display: grid; place-items: center; text-align: center; color: var(--fg-subtle); gap: 8px; cursor: pointer; transition: border-color .15s, color .15s; }
+.add-card:hover { border-color: var(--brand); color: var(--fg); }
+.add-card svg { width: 24px; height: 24px; }
+
+/* ---------- Execução ---------- */
+.back { display: inline-flex; gap: 8px; align-items: center; color: var(--fg-subtle); font-weight: 600; font-size: 13px; text-decoration: none; margin-bottom: 12px; }
+.back:hover { color: var(--fg); }
+.back svg { width: 16px; height: 16px; }
+.title-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.meta { display: flex; flex-wrap: wrap; gap: 0; border-bottom: 1px solid var(--border); padding-bottom: 24px; }
+.meta > div { display: flex; flex-direction: column; gap: 4px; padding-inline: 28px; border-left: 1px solid var(--border); }
+.meta > div:first-child { padding-left: 0; border-left: 0; }
+.meta span:first-child { font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--fg-faint); }
+.meta span:last-child { font-family: var(--font-mono); font-size: 13px; }
+.exec-grid { display: grid; grid-template-columns: minmax(260px, 1fr) 2.2fr; gap: 24px; align-items: start; }
+.timeline { list-style: none; margin: 0; padding: 0 0 0 8px; display: grid; gap: 28px; position: relative; }
+.timeline::before { content: ""; position: absolute; left: 15px; top: 8px; bottom: 8px; width: 1px; background: var(--border); }
+.timeline li { display: grid; grid-template-columns: 16px 1fr; gap: 14px; position: relative; }
+.node { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--border); background: var(--surface); display: grid; place-items: center; margin-top: 2px; z-index: 1; }
+.node svg { width: 9px; height: 9px; }
+.timeline .label { font-weight: 600; font-size: 14px; }
+.timeline .info { font-family: var(--font-mono); font-size: 12px; color: var(--fg-subtle); margin-top: 3px; }
+li.success .node { border-color: var(--success); color: var(--success); }
+li.failed .node { border-color: var(--danger); background: var(--danger); color: var(--on-brand); box-shadow: 0 0 0 4px var(--danger-tint); }
+li.failed .label, li.failed .info { color: var(--danger); }
+li.running .node { border-color: var(--warning); }
+li.running .node::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--warning); animation: pulse 1s infinite; }
+li.running .info { color: var(--warning); }
+li.skipped, li.pending { opacity: .45; }
+.diag { display: flex; gap: 16px; justify-content: space-between; align-items: flex-start; background: var(--danger-tint); border: 1px solid var(--danger); border-radius: 12px; padding: 18px 20px; flex-wrap: wrap; }
+.diag.ok { background: var(--success-tint); border-color: var(--success); }
+.diag h3 { margin: 0 0 6px; font-size: 14px; display: flex; align-items: center; gap: 8px; color: var(--danger); }
+.diag.ok h3 { color: var(--success); }
+.diag h3 svg { width: 16px; height: 16px; }
+.diag p { color: var(--fg); font-size: 13px; max-width: 70ch; }
+.diag code { font-family: var(--font-mono); font-size: 12px; background: var(--surface); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+.console { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--console); display: flex; flex-direction: column; min-width: 0; }
+.console-bar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border); background: var(--surface-sunken); }
+.levels { display: flex; flex-wrap: wrap; gap: 6px; }
+.levels button { border: 1px solid var(--border); background: transparent; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 500; color: var(--fg-muted); display: inline-flex; gap: 6px; align-items: center; }
+.levels button .n { font-family: var(--font-mono); color: var(--fg-subtle); font-size: 11px; }
+.levels button[aria-pressed="true"] { background: var(--surface-hover); color: var(--fg); border-color: var(--fg-faint); }
+.levels button i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; background: var(--fg-subtle); }
+.levels button[data-level="success"] i { background: var(--success); } .levels button[data-level="warning"] i { background: var(--warning); } .levels button[data-level="error"] i { background: var(--danger); }
+.console-tools { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--fg-muted); }
+.console-tools .input { padding: 5px 10px; width: 170px; font-size: 12px; }
+.console-tools label { display: inline-flex; gap: 6px; align-items: center; }
+.logs { font-family: var(--font-mono); font-size: 12.5px; line-height: 1.75; padding: 14px 0; height: 400px; overflow: auto; }
+.logs div { padding-inline: 16px; white-space: pre-wrap; word-break: break-word; color: var(--fg-muted); }
+.logs .t { color: var(--fg-faint); }
+.logs .lv-success .lv { color: var(--success); font-weight: 700; }
+.logs .lv-warning { color: var(--warning); } .logs .lv-warning .lv { font-weight: 700; }
+.logs .lv-error { background: var(--danger-tint); color: var(--fg); border-left: 2px solid var(--danger); padding-left: 14px; }
+.logs .lv-error .lv { color: var(--danger); font-weight: 700; }
+.logs .empty { color: var(--fg-faint); font-family: var(--font-sans); padding-top: 24px; text-align: center; }
+mark { background: var(--warning-tint); color: inherit; border-radius: 2px; }
+.menu-wrap { position: relative; }
+.menu { position: absolute; right: 0; top: calc(100% + 6px); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px; min-width: 210px; box-shadow: 0 10px 28px rgba(0,0,0,.35); z-index: 10; display: grid; }
+.menu button { text-align: left; border: 0; background: transparent; padding: 8px 10px; border-radius: 6px; font-size: 13px; display: flex; justify-content: space-between; gap: 12px; }
+.menu button:hover { background: var(--surface-hover); }
+.menu button span { color: var(--fg-subtle); font-family: var(--font-mono); font-size: 12px; }
+.confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid var(--warning); background: var(--warning-tint); border-radius: 10px; font-size: 13px; }
+
+/* ---------- Config ---------- */
+.secrets { display: grid; gap: 0; }
+.secret { display: grid; grid-template-columns: 1.4fr 1fr 1.2fr auto; gap: 16px; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--border); }
+.secret:last-child { border-bottom: 0; padding-bottom: 0; }
+.secret:first-child { padding-top: 0; }
+.secret .name { font-weight: 600; }
+.secret .env { font-family: var(--font-mono); font-size: 12px; color: var(--fg-subtle); margin-top: 2px; }
+.masked { font-family: var(--font-mono); letter-spacing: .2em; color: var(--fg-faint); }
+.vault-note { display: flex; gap: 12px; align-items: flex-start; font-size: 13px; color: var(--fg-muted); padding: 14px 16px; border-radius: 10px; background: var(--surface-sunken); border: 1px solid var(--border); margin-bottom: 20px; }
+.vault-note svg { width: 18px; height: 18px; flex-shrink: 0; color: var(--success); margin-top: 1px; }
+.perm-yes { color: var(--success); font-weight: 700; } .perm-no { color: var(--fg-faint); }
+td.c, th.c { text-align: center; }
+
+/* ---------- Contratos ---------- */
+.capture { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 12px; color: var(--fg-subtle); margin-top: 10px; }
+.capture .live { font-size: 12px; }
+.ct-top { display: grid; grid-template-columns: 1.65fr 1fr; gap: 20px; align-items: start; }
+.stages { display: grid; gap: 2px; }
+.stage { display: grid; grid-template-columns: 22px minmax(170px, 1.2fr) 2fr 64px 64px; gap: 14px; align-items: center; padding: 9px 10px; border-radius: 8px; border: 1px solid transparent; background: transparent; text-align: left; width: 100%; }
+.stage:hover { background: var(--surface-hover); }
+.stage[aria-pressed="true"] { border-color: var(--brand); background: var(--surface-hover); }
+.stage.head { font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--fg-faint); padding-block: 0 6px; cursor: default; }
+.stage.head:hover { background: transparent; }
+.stage .n { font-family: var(--font-mono); font-size: 12px; color: var(--fg-faint); }
+.stage .lbl { font-weight: 600; font-size: 13px; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.stage .lbl small { font-family: var(--font-mono); font-weight: 400; font-size: 11px; color: var(--fg-subtle); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stage .bar { display: flex; align-items: center; gap: 10px; }
+.stage .bar .track { flex: 1; height: 8px; background: var(--track); border-radius: 4px; overflow: hidden; }
+.stage .bar .fill { height: 100%; background: var(--fg-subtle); border-radius: 4px; }
+.stage.hot .bar .fill { background: var(--brand); }
+.stage .bar .mono { width: 28px; text-align: right; font-size: 13px; }
+.stage .num { font-family: var(--font-mono); font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; }
+.stage .num.warn { color: var(--warning); font-weight: 700; }
+.hot-tag { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--brand); border: 1px solid currentColor; border-radius: 4px; padding: 1px 5px; margin-left: 6px; vertical-align: 1px; }
+.outcomes .fill.s-ok { background: var(--success); } .outcomes .fill.s-neutral { background: var(--fg-subtle); }
+.outcomes .fill.s-warn { background: var(--warning); } .outcomes .fill.s-bad { background: var(--danger); }
+.big-note { display: grid; gap: 4px; padding-top: 18px; margin-top: 18px; border-top: 1px solid var(--border); font-size: 13px; color: var(--fg-muted); }
+.big-note strong { color: var(--fg); font-family: var(--font-mono); font-size: 20px; }
+.legend i.s1 { background: var(--s1); } .legend i.s2 { background: var(--s2); } .legend i.s3 { background: var(--s3); } .legend i.s4 { background: var(--s4); } .legend i.s5 { background: var(--s5); }
+.legend i.sq { width: 10px; height: 10px; border-radius: 2px; }
+.chart .seg1 { fill: var(--s1); } .chart .seg2 { fill: var(--s2); } .chart .seg3 { fill: var(--s3); } .chart .seg4 { fill: var(--s4); } .chart .seg5 { fill: var(--s5); }
+.chart .col { stroke: var(--surface); stroke-width: 2; }
+.chart .col-hi { fill: var(--brand); } .chart .col-lo { fill: var(--fg-faint); }
+.chart .colhit { fill: transparent; cursor: default; }
+.chart .colhit:hover { fill: var(--fg); fill-opacity: .05; }
+.chart .vlabel { fill: var(--fg); font-weight: 700; }
+.tip .row { display: flex; justify-content: space-between; gap: 16px; }
+.tip .sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
+.pct { display: flex; align-items: center; gap: 8px; }
+.pct .track { width: 60px; height: 6px; background: var(--track); border-radius: 3px; overflow: hidden; }
+.pct .fill { height: 100%; border-radius: 3px; background: var(--success); }
+.pct .fill.low { background: var(--warning); }
+.cname { font-weight: 600; max-width: 34ch; }
+.cnum { font-family: var(--font-mono); font-size: 12px; color: var(--fg-subtle); }
+.filter-pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; border-radius: 999px; border: 1px solid var(--brand); font-size: 12px; color: var(--fg); }
+.filter-pill button { border: 0; background: transparent; color: var(--fg-muted); width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; }
+.filter-pill button:hover { background: var(--surface-hover); color: var(--fg); }
+table:has(.compact) th, .compact td { padding-inline: 8px; }
+table:has(.compact) th:first-child, .compact td:first-child { padding-left: 0; }
+.compact .pct .track { width: 44px; }
+@media (max-width: 1100px) { .ct-top { grid-template-columns: 1fr; } }
+@media (max-width: 760px) {
+  .stage { grid-template-columns: 22px 1fr 56px; }
+  .stage .bar { grid-column: 2 / -1; grid-row: 2; }
+  .stage .num.old, .stage.head .old, .stage.head .barh { display: none; }
+}
+
+/* ---------- Responsivo ---------- */
+@media (max-width: 1100px) {
+  .kpis, .client-grid { grid-template-columns: repeat(2, 1fr); }
+  .exec-grid { grid-template-columns: 1fr; }
+  .secret { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 760px) {
+  .app { flex-direction: column; height: auto; min-height: 100%; }
+  .sidebar { width: 100%; flex-direction: row; padding: 10px 16px; gap: 16px; border-right: 0; border-bottom: 1px solid var(--border); position: sticky; top: env(safe-area-inset-top, 0px); z-index: 15; }
+  .nav { flex-direction: row; gap: 4px; }
+  .side-bottom { margin-top: 0; margin-left: auto; flex-direction: row; }
+  .main { overflow: visible; }
+  .view { padding: 24px 16px; gap: 24px; }
+  .proto-bar { padding: 10px 16px; }
+  .grid-2, .kpis, .client-grid { grid-template-columns: 1fr; }
+  .meta > div { padding-inline: 0 16px; border-left: 0; margin-bottom: 8px; }
+  .roles { grid-template-columns: 1fr; }
+  h1 { font-size: 24px; }
+  .secret { grid-template-columns: 1fr; gap: 8px; }
+}
+</style>
+
+<div class="app">
+  <aside class="sidebar" aria-label="Navegação">
+    <div class="logo" aria-hidden="true">LG</div>
+    <nav class="nav" aria-label="Navegação principal">
+      <a href="#contratos" data-nav="contratos" title="Contratos" aria-label="Contratos">
+        <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>
+      </a>
+      <a href="#indicadores" data-nav="indicadores" title="Indicadores" aria-label="Indicadores">
+        <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 6-6"/></svg>
+      </a>
+      <a href="#execucao" data-nav="execucao" title="Execuções" aria-label="Execuções">
+        <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><path d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+      </a>
+      <a href="#auditoria" data-nav="auditoria" title="Auditoria" aria-label="Auditoria">
+        <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg>
+      </a>
+      <a href="#config" data-nav="config" title="Configurações" aria-label="Configurações">
+        <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
+      </a>
+    </nav>
+    <div class="side-bottom">
+      <button type="button" class="icon-btn" id="theme-toggle" title="Alternar tema claro/escuro" aria-label="Alternar tema claro/escuro">
+        <svg class="theme-sun" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        <svg class="theme-moon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+      </button>
+      <a href="#login" class="avatar" id="me-avatar" title="Sair" aria-label="Sair">CM</a>
+    </div>
+  </aside>
+
+  <div class="main" id="main">
+    <div class="proto-bar">
+      <span><strong>Mockup para a reunião com o cliente</strong> · dados fictícios · as ações funcionam só nesta página</span>
+      <span style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">Ver como
+        <span class="seg" id="role-switch" role="group" aria-label="Perfil de acesso">
+          <button type="button" data-role="visualizador" aria-pressed="false">Visualizador</button>
+          <button type="button" data-role="operador" aria-pressed="true">Operador</button>
+          <button type="button" data-role="admin" aria-pressed="false">Admin</button>
+        </span>
+      </span>
+    </div>
+
+    <!-- ============ LOGIN ============ -->
+    <section class="login" data-view="login" hidden>
+      <div class="login-card">
+        <div class="logo" aria-hidden="true">LG</div>
+        <div>
+          <h1>LMS RPA Monitor</h1>
+          <p class="muted" style="margin-top:8px">Entre com a sua conta corporativa LGE para acompanhar o robô de captura de contratos.</p>
+        </div>
+        <button type="button" class="btn btn-primary" id="sso-login">
+          <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+          Entrar com SSO LGE
+        </button>
+        <div class="sso-steps">
+          <div><svg fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></svg>Mesmo login e OTP que você já usa no sso.lge.com</div>
+          <div><svg fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></svg>Nenhuma senha fica salva no painel</div>
+          <div><svg fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></svg>Cada acesso e cada ação ficam registrados na auditoria</div>
+        </div>
+        <div>
+          <p class="eyebrow" style="margin-bottom:10px">O que cada perfil pode fazer</p>
+          <div class="roles">
+            <div><strong>Visualizador</strong>Indicadores e execuções</div>
+            <div><strong>Operador</strong>Dispara, reexecuta e interrompe</div>
+            <div><strong>Admin</strong>Usuários, agenda e credenciais</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ CONTRATOS ============ -->
+    <section class="view" data-view="contratos" hidden>
+      <div class="page-head">
+        <div>
+          <h1>Contratos</h1>
+          <p class="sub">O ciclo de cada contrato no Contract Review Management, da solicitação até a vigência. Montado a partir da base Ideal Raw que o robô captura todos os dias.</p>
+          <div class="capture"><span class="live"><span class="dot"></span>Base atualizada hoje às 14:16</span><span class="mono" id="ct-count"></span></div>
+        </div>
+        <div class="actions">
+          <span class="seg" id="ct-period" role="group" aria-label="Solicitações do período">
+            <button type="button" data-months="3" aria-pressed="false">3 meses</button>
+            <button type="button" data-months="6" aria-pressed="true">6 meses</button>
+            <button type="button" data-months="12" aria-pressed="false">12 meses</button>
+          </span>
+          <select class="input" id="ct-dept" aria-label="Departamento"><option value="">Todos os departamentos</option></select>
+          <select class="input" id="ct-type" aria-label="Tipo de contrato"><option value="">Todos os tipos</option></select>
+          <button type="button" class="btn" id="ct-export" data-perm="export">
+            <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 4v12m0 0-4-4m4 4 4-4M4 20h16"/></svg>
+            Base Ideal Raw
+          </button>
+        </div>
+      </div>
+
+      <div class="kpis" id="ct-kpis"></div>
+
+      <div class="ct-top">
+        <div class="card">
+          <div class="card-head"><p class="eyebrow">Onde os contratos estão agora</p><span class="hint">clique numa etapa para ver os contratos</span></div>
+          <div class="stages" id="ct-stages"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><p class="eyebrow">Como terminaram</p><span class="hint" id="ct-out-hint"></span></div>
+          <div class="hbars outcomes" id="ct-outcomes"></div>
+          <div class="big-note" id="ct-value"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <p class="eyebrow">Tempo até a vigência, por mês de solicitação</p>
+          <div class="legend" id="ct-cycle-legend"></div>
+        </div>
+        <div class="chart" id="ct-cycle"></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head"><p class="eyebrow">Revisores do jurídico</p><span class="hint">prazo de revisão: até 7 dias</span></div>
+          <div class="table-wrap" style="border:0;border-radius:0">
+            <table>
+              <thead><tr><th>Revisor</th><th class="c">Em revisão</th><th class="c">Concluídas</th><th class="c">Média</th><th>No prazo</th></tr></thead>
+              <tbody id="ct-reviewers" class="compact"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><p class="eyebrow">Vencimentos nos próximos 12 meses</p><span class="hint">contratos vigentes</span></div>
+          <div class="chart" id="ct-exp"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <p class="eyebrow">Precisam de atenção</p>
+          <span id="ct-att-filter" class="hint">contratos parados há mais tempo na etapa atual</span>
+        </div>
+        <div class="table-wrap" style="border:0;border-radius:0">
+          <table>
+            <thead><tr><th>Contrato</th><th>Contraparte</th><th>Etapa atual</th><th class="c">Parado há</th><th>Revisor</th><th>Departamento</th><th style="text-align:right">Valor</th></tr></thead>
+            <tbody id="ct-attention"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ INDICADORES ============ -->
+    <section class="view" data-view="indicadores" hidden>
+      <div class="page-head">
+        <div>
+          <h1>Indicadores</h1>
+          <p class="sub">Desempenho do robô e volume de contratos capturados no LMS.</p>
+        </div>
+        <div class="actions">
+          <span class="seg" id="period" role="group" aria-label="Período">
+            <button type="button" data-days="7" aria-pressed="false">7 dias</button>
+            <button type="button" data-days="30" aria-pressed="true">30 dias</button>
+            <button type="button" data-days="90" aria-pressed="false">90 dias</button>
+          </span>
+          <button type="button" class="btn" id="export-report" data-perm="export">
+            <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 4v12m0 0-4-4m4 4 4-4M4 20h16"/></svg>
+            Exportar relatório
+          </button>
+        </div>
+      </div>
+
+      <div class="kpis" id="kpis"></div>
+
+      <div class="card">
+        <div class="card-head">
+          <p class="eyebrow">Taxa de sucesso por dia</p>
+          <div class="legend"><span><i></i>Execuções concluídas</span><span><i class="dash"></i>Meta departamental 85%</span></div>
+        </div>
+        <div class="chart" id="rate-chart"></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head"><p class="eyebrow">Duração média por etapa</p><span class="hint">segundos, execuções concluídas</span></div>
+          <div class="hbars" id="dur-bars"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><p class="eyebrow">Onde o robô mais falha</p><span class="hint" id="fail-total"></span></div>
+          <div class="hbars" id="fail-bars"></div>
+        </div>
+      </div>
+
+      <div class="client-head">
+        <div>
+          <p class="eyebrow" style="color:var(--warning)">A definir com o cliente</p>
+          <h2 style="margin-top:6px">Indicadores da equipe jurídica</h2>
+          <p class="sub">Os indicadores que vocês acompanham hoje em planilha entram aqui, calculados direto dos contratos capturados. Os cartões abaixo são exemplos para a conversa.</p>
+        </div>
+      </div>
+      <div class="client-grid">
+        <div class="card ph">
+          <span class="tag">Exemplo</span>
+          <p class="eyebrow">Contratos em revisão há mais de 5 dias</p>
+          <div class="value">37 <small>contratos</small></div>
+          <div class="mini">
+            <div><span class="subtle">5–10 d</span><span class="track"><span class="fill" style="display:block;width:62%"></span></span><span class="mono subtle">23</span></div>
+            <div><span class="subtle">10–20 d</span><span class="track"><span class="fill" style="display:block;width:30%"></span></span><span class="mono subtle">11</span></div>
+            <div><span class="subtle">&gt; 20 d</span><span class="track"><span class="fill" style="display:block;width:8%;background:var(--brand)"></span></span><span class="mono subtle">3</span></div>
+          </div>
+          <p class="note">Alerta automático quando passar do prazo</p>
+        </div>
+        <div class="card ph">
+          <span class="tag">Exemplo</span>
+          <p class="eyebrow">Tempo médio de revisão</p>
+          <div class="value">4,2 <small>dias úteis</small></div>
+          <p class="delta up">−0,8 d <span>vs. mês anterior</span></p>
+          <p class="note">Da data de solicitação até a aprovação no LMS</p>
+        </div>
+        <div class="card ph">
+          <span class="tag">Exemplo</span>
+          <p class="eyebrow">Solicitações por subsidiária</p>
+          <div class="mini">
+            <div><span class="mono subtle">LGESP</span><span class="track"><span class="fill" style="display:block;width:78%"></span></span><span class="mono subtle">412</span></div>
+            <div><span class="mono subtle">LGEAZ</span><span class="track"><span class="fill" style="display:block;width:41%"></span></span><span class="mono subtle">218</span></div>
+            <div><span class="mono subtle">Outras</span><span class="track"><span class="fill" style="display:block;width:12%"></span></span><span class="mono subtle">64</span></div>
+          </div>
+          <p class="note">Filtro Subsidiary Code do Contract Review</p>
+        </div>
+        <button type="button" class="card ph add-card" id="add-kpi">
+          <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          <span><strong style="color:var(--fg)">Indicador do cliente</strong><br><span style="font-size:12px">Vamos levantar na reunião</span></span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ============ EXECUÇÃO ============ -->
+    <section class="view" data-view="execucao" hidden>
+      <div class="page-head" style="align-items:flex-start">
+        <div>
+          <a href="#execucao" class="back"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M19 12H5m7 7-7-7 7-7"/></svg>Voltar para Execuções</a>
+          <div class="title-row">
+            <h1 id="exec-title">Execução #1042</h1>
+            <span class="badge failed" id="exec-badge">Falha</span>
+            <span class="live idle" id="exec-live"><span class="dot"></span><span>Atualização em tempo real</span></span>
+          </div>
+        </div>
+        <div class="actions">
+          <div class="menu-wrap">
+            <button type="button" class="btn" id="export-btn" data-perm="export" aria-haspopup="true" aria-expanded="false">
+              <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 4v12m0 0-4-4m4 4 4-4M4 20h16"/></svg>
+              Exportar logs
+            </button>
+            <div class="menu" id="export-menu" hidden>
+              <button type="button" data-fmt="log">Texto <span>.log</span></button>
+              <button type="button" data-fmt="csv">Planilha <span>.csv</span></button>
+              <button type="button" data-fmt="json">Dados <span>.json</span></button>
+            </div>
+          </div>
+          <button type="button" class="btn" id="stop-btn" data-perm="stop" disabled>
+            <svg viewBox="0 0 24 24" fill="currentColor" style="color:var(--danger)"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+            Interromper
+          </button>
+          <button type="button" class="btn btn-primary" id="rerun-btn" data-perm="run">
+            <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+            Reexecutar
+          </button>
+        </div>
+      </div>
+      <div class="confirm" id="rerun-confirm" hidden>
+        <span>Reexecutar o fluxo <strong>Login + Captura LMS</strong> agora? A execução fica registrada no seu nome.</span>
+        <span class="actions" style="margin-left:auto">
+          <button type="button" class="btn btn-sm" id="rerun-cancel">Cancelar</button>
+          <button type="button" class="btn btn-sm btn-primary" id="rerun-go">Reexecutar agora</button>
+        </span>
+      </div>
+
+      <div class="meta" id="exec-meta"></div>
+
+      <div class="exec-grid">
+        <div class="card">
+          <p class="eyebrow" style="margin-bottom:22px">Linha do tempo</p>
+          <ol class="timeline" id="timeline"></ol>
+        </div>
+        <div style="display:grid;gap:20px;min-width:0">
+          <div id="diag"></div>
+          <div class="console">
+            <div class="console-bar">
+              <div class="levels" id="levels" role="group" aria-label="Filtrar por nível"></div>
+              <div class="console-tools">
+                <input class="input" id="log-search" type="search" placeholder="Buscar no log" aria-label="Buscar no log">
+                <label><input type="checkbox" id="autoscroll" checked> Auto-scroll</label>
+              </div>
+            </div>
+            <div class="logs" id="logs" aria-live="polite"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ AUDITORIA ============ -->
+    <section class="view" data-view="auditoria" hidden>
+      <div class="page-head">
+        <div>
+          <h1>Auditoria</h1>
+          <p class="sub">Quem disparou, reexecutou, interrompeu ou mudou alguma configuração do robô. O registro não pode ser editado nem apagado.</p>
+        </div>
+      </div>
+      <div data-requires="audit">
+        <div class="filters" style="margin-bottom:16px">
+          <input class="input" id="audit-search" type="search" placeholder="Buscar por usuário, execução ou detalhe" aria-label="Buscar na auditoria" style="flex:1 1 260px">
+          <select class="input" id="audit-action" aria-label="Filtrar por ação"><option value="">Todas as ações</option></select>
+          <select class="input" id="audit-user" aria-label="Filtrar por usuário"><option value="">Todos os usuários</option></select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Quando</th><th>Usuário</th><th>Ação</th><th>Alvo</th><th>Detalhe</th></tr></thead>
+            <tbody id="audit-body"></tbody>
+          </table>
+        </div>
+        <p class="subtle" style="font-size:12px;margin-top:10px" id="audit-count"></p>
+      </div>
+      <div class="locked" data-locked="audit" hidden>
+        <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        <strong style="color:var(--fg)">Seu perfil não tem acesso à auditoria</strong>
+        <span>Peça a um Admin para mudar seu perfil para Operador.</span>
+      </div>
+    </section>
+
+    <!-- ============ CONFIGURAÇÕES ============ -->
+    <section class="view" data-view="config" hidden>
+      <div class="page-head">
+        <div>
+          <h1>Configurações</h1>
+          <p class="sub">Credenciais que o robô usa para entrar no LMS, e quem pode fazer o quê no painel.</p>
+        </div>
+      </div>
+      <div data-requires="admin" style="display:grid;gap:24px">
+        <div class="card">
+          <div class="card-head"><p class="eyebrow">Credenciais do robô</p><span class="chip ok"><span class="dot"></span>Cofre conectado</span></div>
+          <div class="vault-note">
+            <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3Z"/></svg>
+            <span>As credenciais ficam no cofre de segredos, fora do código e do arquivo <span class="mono">.env</span>. Só o robô lê os valores, no momento da execução. Este painel mostra apenas o status e quando cada uma foi trocada.</span>
+          </div>
+          <div class="secrets" id="secrets"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><p class="eyebrow">Usuários e perfis</p><button type="button" class="btn btn-sm" id="invite">Adicionar usuário</button></div>
+          <div class="table-wrap" style="border:0;border-radius:0">
+            <table>
+              <thead><tr><th>Usuário</th><th>Perfil</th><th>Último acesso</th></tr></thead>
+              <tbody id="users-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><p class="eyebrow">Permissões por perfil</p></div>
+          <div class="table-wrap" style="border:0;border-radius:0">
+            <table>
+              <thead><tr><th>Permissão</th><th class="c">Visualizador</th><th class="c">Operador</th><th class="c">Admin</th></tr></thead>
+              <tbody id="perm-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="locked" data-locked="admin" hidden>
+        <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        <strong style="color:var(--fg)">Configurações são exclusivas do perfil Admin</strong>
+        <span>Troque para “Admin” na faixa do topo para ver esta tela.</span>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const nf = (n, d = 0) => n.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+  const fmtDur = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}m ${String(Math.round(s % 60)).padStart(2, '0')}s`;
+  const pad = (n) => String(n).padStart(2, '0');
+  const clock = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+
+  /* ---------- Tema ---------- */
+  const root = document.documentElement;
+  try { const t = localStorage.getItem('lms-rpa-theme'); if (t) root.setAttribute('data-theme', t); } catch (e) {}
+  $('#theme-toggle').addEventListener('click', () => {
+    const cur = root.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    const next = cur === 'light' ? 'dark' : 'light';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('lms-rpa-theme', next); } catch (e) {}
+    renderRateChart();
+  });
+
+  /* ---------- Toast ---------- */
+  let toastTimer;
+  window.__toast = (m) => toast(m);
+  function toast(msg) {
+    const el = $('#toast'); el.innerHTML = msg; el.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 3200);
+  }
+
+  /* ---------- Perfis ---------- */
+  const PERMS = [
+    ['view', 'Ver indicadores e execuções', ['visualizador', 'operador', 'admin']],
+    ['export', 'Exportar logs e relatórios', ['visualizador', 'operador', 'admin']],
+    ['run', 'Disparar e reexecutar o robô', ['operador', 'admin']],
+    ['stop', 'Interromper uma execução', ['operador', 'admin']],
+    ['audit', 'Ver a auditoria', ['operador', 'admin']],
+    ['schedule', 'Alterar a agenda de execuções', ['admin']],
+    ['admin', 'Gerenciar usuários e credenciais', ['admin']],
+  ];
+  const ROLE_LABEL = { visualizador: 'Visualizador', operador: 'Operador', admin: 'Admin' };
+  const PERSONA = { visualizador: 'Bruno Lima', operador: 'Carla Mendes', admin: 'Rafael Teixeira' };
+  const can = (perm) => PERMS.find((p) => p[0] === perm)[2].includes(state.role);
+  const initials = (name) => name.split(' ').map((w) => w[0]).slice(0, 2).join('');
+
+  const state = { role: 'operador', days: 30, level: 'all', search: '' };
+
+  function applyRole() {
+    $$('#role-switch button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.role === state.role)));
+    const me = PERSONA[state.role];
+    $('#me-avatar').textContent = initials(me);
+    $('#me-avatar').title = `${me} · ${ROLE_LABEL[state.role]} · clique para sair`;
+    $$('[data-perm]').forEach((el) => {
+      const perm = el.dataset.perm;
+      let off = !can(perm);
+      if (el.id === 'stop-btn') off = off || exec.status !== 'running';
+      if (el.id === 'rerun-btn') off = off || exec.status === 'running';
+      el.disabled = off;
+      el.title = !can(perm) ? `Seu perfil (${ROLE_LABEL[state.role]}) não permite esta ação` : '';
+    });
+    $$('[data-requires]').forEach((el) => (el.hidden = !can(el.dataset.requires)));
+    $$('[data-locked]').forEach((el) => (el.hidden = can(el.dataset.locked)));
+    if (!can('run')) $('#rerun-confirm').hidden = true;
+    renderUsers();
+  }
+  $('#role-switch').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    state.role = b.dataset.role; applyRole();
+  });
+
+  /* ---------- Rotas ---------- */
+  const VIEWS = ['login', 'contratos', 'indicadores', 'execucao', 'auditoria', 'config'];
+  function route() {
+    let v = location.hash.replace('#', '');
+    if (!VIEWS.includes(v)) v = 'contratos';
+    $$('[data-view]').forEach((s) => (s.hidden = s.dataset.view !== v));
+    $$('[data-nav]').forEach((a) => { if (a.dataset.nav === v) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+    document.body.classList.toggle('on-login', v === 'login');
+    $('#main').scrollTop = 0;
+    if (v === 'indicadores') requestAnimationFrame(renderRateChart);
+  }
+  addEventListener('hashchange', route);
+  $('#sso-login').addEventListener('click', () => {
+    addAudit({ action: 'Entrou no sistema', target: '—', detail: 'SSO LGE + OTP' });
+    location.hash = 'contratos';
+  });
+
+  /* ---------- Dados fictícios: 180 dias de execuções ---------- */
+  function rng(seed) { return () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  const rand = rng(42);
+  const STEPS = [
+    ['start_session', 'Iniciar sessão', [0.5, 2]],
+    ['otp_captcha', 'Geração OTP e captcha', [8, 20]],
+    ['sso_login', 'Login SSO', [5, 15]],
+    ['lms_access', 'Acesso LMS', [3, 8]],
+    ['contract_capture', 'Captura de contratos', [30, 90]],
+  ];
+  const FAIL_W = [5, 30, 40, 15, 10];
+  const TODAY = new Date(2026, 9, 13);
+  const days = [];
+  for (let i = 179; i >= 0; i--) {
+    const d = new Date(TODAY); d.setDate(d.getDate() - i);
+    // Melhora gradual ao longo do tempo: o SSO ficou mais estável depois dos ajustes de retry.
+    const failP = 0.16 - (179 - i) / 179 * 0.09;
+    const runs = 3 + (rand() < 0.35 ? 1 : 0) + (rand() < 0.15 ? 1 : 0);
+    const day = { date: d, total: 0, ok: 0, failed: 0, atypical: 0, failsByStep: [0, 0, 0, 0, 0], durSum: [0, 0, 0, 0, 0], durN: 0, records: 0, totalDur: 0 };
+    for (let r = 0; r < runs; r++) {
+      day.total++;
+      if (rand() < failP) {
+        let x = rand() * 100, k = 0; while (x > FAIL_W[k]) { x -= FAIL_W[k]; k++; }
+        day.failed++; day.failsByStep[k]++;
+      } else {
+        const durs = STEPS.map(([, , [a, b]]) => a + rand() * (b - a));
+        const atyp = rand() < 0.05; if (atyp) durs[4] += 240;
+        const tot = durs.reduce((s, v) => s + v, 0);
+        day.ok++; if (atyp) day.atypical++;
+        durs.forEach((v, j) => (day.durSum[j] += v)); day.durN++; day.totalDur += tot;
+        day.records += Math.round(60 + rand() * 50);
+      }
+    }
+    days.push(day);
+  }
+  function aggregate(from, to) {
+    const slice = days.slice(from, to);
+    const a = { total: 0, ok: 0, failed: 0, records: 0, totalDur: 0, durN: 0, fails: [0, 0, 0, 0, 0], durSum: [0, 0, 0, 0, 0] };
+    slice.forEach((d) => {
+      a.total += d.total; a.ok += d.ok; a.failed += d.failed; a.records += d.records; a.totalDur += d.totalDur; a.durN += d.durN;
+      d.failsByStep.forEach((v, i) => (a.fails[i] += v)); d.durSum.forEach((v, i) => (a.durSum[i] += v));
+    });
+    a.rate = a.total ? (a.ok / a.total) * 100 : 0;
+    a.avgDur = a.durN ? a.totalDur / a.durN : 0;
+    return { a, slice };
+  }
+
+  /* ---------- Indicadores ---------- */
+  function renderKpis() {
+    const n = state.days, L = days.length;
+    const { a: cur } = aggregate(L - n, L);
+    const { a: prev } = aggregate(L - 2 * n, L - n);
+    const delta = (c, p, unit, invert, dec = 1) => {
+      const d = c - p, good = invert ? d < 0 : d > 0;
+      const cls = Math.abs(d) < (dec ? 0.05 : 0.5) ? 'flat' : good ? 'up' : 'down';
+      const sign = d > 0 ? '+' : d < 0 ? '−' : '';
+      return `<p class="delta ${cls}">${sign}${unit(Math.abs(d))} <span>vs. ${n} dias anteriores</span></p>`;
+    };
+    const tiles = [
+      ['Taxa de sucesso', `${nf(cur.rate, 1)}<small>%</small>`, delta(cur.rate, prev.rate, (v) => `${nf(v, 1)} p.p.`)],
+      ['Execuções', nf(cur.total), `<p class="delta flat"><span style="color:var(--success)">● ${nf(cur.ok)}</span> &nbsp;<span style="color:var(--danger)">● ${nf(cur.failed)}</span> <span>concluídas · falhas</span></p>`],
+      ['Duração média', fmtDur(cur.avgDur), delta(cur.avgDur, prev.avgDur, (v) => `${nf(v, 0)} s`, true, 0)],
+      ['Contratos capturados', nf(cur.records), delta(cur.records, prev.records, (v) => nf(v), false, 0)],
+    ];
+    $('#kpis').innerHTML = tiles.map(([l, v, d]) => `<div class="card kpi"><p class="eyebrow">${l}</p><div class="value">${v}</div>${d}</div>`).join('');
+
+    const durs = cur.durSum.map((s) => s / (cur.durN || 1));
+    const maxD = Math.max(...durs);
+    const topD = durs.indexOf(maxD);
+    $('#dur-bars').innerHTML = STEPS.map(([, label], i) => `
+      <div class="hbar${i === topD ? ' top' : ''}" title="${label}: ${nf(durs[i], 1)} s em média">
+        <div class="row"><span>${label}</span><span class="mono">${nf(durs[i], 1)} s</span></div>
+        <div class="track"><div class="fill" style="width:${(durs[i] / maxD) * 100}%"></div></div>
+      </div>`).join('');
+
+    const order = cur.fails.map((v, i) => [v, i]).sort((x, y) => y[0] - x[0]);
+    const maxF = order[0][0] || 1;
+    $('#fail-total').textContent = `${nf(cur.failed)} falhas no período`;
+    $('#fail-bars').innerHTML = order.map(([v, i], rank) => `
+      <div class="hbar${rank === 0 ? ' top' : ''}" title="${STEPS[i][1]}: ${v} falhas">
+        <div class="row"><span>${STEPS[i][1]}</span><span class="mono">${v} · ${nf(cur.failed ? (v / cur.failed) * 100 : 0, 0)}%</span></div>
+        <div class="track"><div class="fill" style="width:${(v / maxF) * 100}%"></div></div>
+      </div>`).join('');
+    renderRateChart();
+  }
+
+  function renderRateChart() {
+    const host = $('#rate-chart'); if (!host || host.offsetParent === null) return;
+    const n = state.days, L = days.length;
+    let pts = days.slice(L - n).map((d) => ({ date: d.date, v: d.total ? (d.ok / d.total) * 100 : 100, ok: d.ok, total: d.total }));
+    // Em 90 dias, agrupa por semana para a linha não virar ruído.
+    if (n === 90) {
+      const wk = [];
+      for (let i = 0; i < pts.length; i += 7) {
+        const g = pts.slice(i, i + 7), ok = g.reduce((s, p) => s + p.ok, 0), tot = g.reduce((s, p) => s + p.total, 0);
+        wk.push({ date: g[0].date, end: g[g.length - 1].date, v: (ok / tot) * 100, ok, total: tot });
+      }
+      pts = wk;
+    }
+    const W = Math.max(host.clientWidth, 280), H = 240, padL = 40, padR = 12, padT = 12, padB = 28;
+    const y0 = 50, y1 = 100;
+    const x = (i) => padL + (pts.length === 1 ? 0 : (i / (pts.length - 1)) * (W - padL - padR));
+    const y = (v) => padT + (1 - (v - y0) / (y1 - y0)) * (H - padT - padB);
+    const line = pts.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join('');
+    const area = `${line}L${x(pts.length - 1).toFixed(1)},${y(y0)}L${x(0).toFixed(1)},${y(y0)}Z`;
+    const ticks = [50, 60, 70, 80, 90, 100];
+    const fmtD = (d) => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
+    const step = Math.ceil(pts.length / Math.max(2, Math.floor((W - padL) / 70)));
+    let xl = '';
+    pts.forEach((p, i) => { if (i % step === 0 || i === pts.length - 1) xl += `<text x="${x(i)}" y="${H - 8}" text-anchor="${i === 0 ? 'start' : i === pts.length - 1 ? 'end' : 'middle'}">${fmtD(p.date)}</text>`; });
+    const last = pts[pts.length - 1];
+    host.innerHTML = `
+      <svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="Taxa de sucesso por ${n === 90 ? 'semana' : 'dia'}, últimos ${n} dias">
+        <defs><linearGradient id="ga" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--brand);stop-opacity:.22"/><stop offset="1" style="stop-color:var(--brand);stop-opacity:0"/></linearGradient></defs>
+        ${ticks.map((t) => `<line class="grid${t === y0 ? ' base' : ''}" x1="${padL}" x2="${W - padR}" y1="${y(t)}" y2="${y(t)}"/><text x="${padL - 8}" y="${y(t) + 4}" text-anchor="end">${t}%</text>`).join('')}
+        <path d="${area}" fill="url(#ga)"/>
+        <line class="goal" x1="${padL}" x2="${W - padR}" y1="${y(85)}" y2="${y(85)}"/>
+        <path class="series" d="${line}"/>
+        <circle class="pt" cx="${x(pts.length - 1)}" cy="${y(last.v)}" r="4.5"/>
+        ${xl}
+        <g id="cross" style="display:none"><line class="cross" id="cx" y1="${padT}" y2="${H - padB}"/><circle class="pt" id="cd" r="5"/></g>
+        <rect x="${padL}" y="0" width="${W - padL - padR}" height="${H - padB}" fill="transparent" id="hit"/>
+      </svg><div class="tip" id="rate-tip" hidden></div>`;
+    const hit = $('#hit', host), tip = $('#rate-tip', host), cross = $('#cross', host);
+    hit.addEventListener('mousemove', (e) => {
+      const r = host.getBoundingClientRect();
+      const px = e.clientX - r.left;
+      const i = Math.max(0, Math.min(pts.length - 1, Math.round(((px - padL) / (W - padL - padR)) * (pts.length - 1))));
+      const p = pts[i];
+      cross.style.display = ''; $('#cx', host).setAttribute('x1', x(i)); $('#cx', host).setAttribute('x2', x(i));
+      $('#cd', host).setAttribute('cx', x(i)); $('#cd', host).setAttribute('cy', y(p.v));
+      tip.hidden = false;
+      tip.innerHTML = `<div class="subtle">${p.end ? `Semana ${fmtD(p.date)}–${fmtD(p.end)}` : fmtD(p.date)}</div><div><b>${nf(p.v, 1)}%</b> · ${p.ok} de ${p.total} execuções</div>`;
+      const tx = Math.min(Math.max(x(i) - tip.offsetWidth / 2, 0), W - tip.offsetWidth);
+      tip.style.left = `${tx}px`; tip.style.top = `${Math.max(0, y(p.v) - tip.offsetHeight - 14)}px`;
+    });
+    hit.addEventListener('mouseleave', () => { cross.style.display = 'none'; tip.hidden = true; });
+  }
+  addEventListener('resize', () => renderRateChart());
+  $('#period').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    state.days = +b.dataset.days;
+    $$('#period button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    renderKpis();
+  });
+  $('#export-report').addEventListener('click', () => {
+    addAudit({ action: 'Exportou relatório', target: 'Indicadores', detail: `Últimos ${state.days} dias · .xlsx` });
+    toast(`Relatório dos últimos ${state.days} dias gerado em <span class="mono">.xlsx</span>`);
+  });
+  $('#add-kpi').addEventListener('click', () => toast('Este espaço recebe os indicadores que o cliente definir na reunião.'));
+
+  /* ---------- Execução ---------- */
+  const STEP_LABELS = Object.fromEntries(STEPS.map(([k, l]) => [k, l]));
+  const t0 = new Date(2026, 9, 13, 14, 15, 22);
+  const at = (s) => new Date(t0.getTime() + s * 1000);
+  let exec = {
+    id: 1042, status: 'failed', flow: 'Login + Captura LMS', start: t0, end: at(45), trigger: 'Manual · Carla Mendes',
+    steps: [
+      { key: 'start_session', status: 'success', dur: 0.5 },
+      { key: 'otp_captcha', status: 'success', dur: 12.0 },
+      { key: 'sso_login', status: 'failed', dur: 30.0 },
+      { key: 'lms_access', status: 'skipped' },
+      { key: 'contract_capture', status: 'skipped' },
+    ],
+    error: { title: 'Tempo esgotado no login SSO', msg: 'O campo <code>#OTPPASSWORD</code> não apareceu em 30 segundos depois do preenchimento do usuário. O robô tentou 3 vezes e encerrou a execução.' },
+    logs: [
+      [0, 'info', 'Iniciando navegador Chromium (headless: true)...'],
+      [0.4, 'info', 'Contexto do navegador criado.'],
+      [0.5, 'info', 'Acessando o autoatendimento LGE para gerar o OTP temporário.'],
+      [2.9, 'info', 'Captcha detectado. Inicializando OCR local (ddddocr).'],
+      [8.8, 'info', 'Captcha resolvido com 98% de confiança.'],
+      [11.9, 'success', 'OTP temporário gerado: ***1A4'],
+      [12.5, 'info', 'Navegando para https://sso.lge.com/'],
+      [15.2, 'info', 'Preenchendo User ID e senha LDAP.'],
+      [16.0, 'warning', 'Campo #OTPPASSWORD demorando para renderizar. Iniciando polling.'],
+      [26.0, 'warning', 'Polling: tentativa 1/3...'],
+      [36.0, 'warning', 'Polling: tentativa 2/3...'],
+      [42.5, 'error', "TimeoutError: page.wait_for_selector: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator('#OTPPASSWORD') to be visible"],
+      [42.6, 'info', 'Screenshot da falha salvo em /dumps/err_1042.png'],
+      [45.0, 'info', 'Contexto do navegador encerrado. Processo finalizado com código 1.'],
+    ].map(([s, level, msg]) => ({ t: at(s), level, msg })),
+  };
+  const LEVELS = [['all', 'Todos'], ['info', 'Info'], ['success', 'Sucesso'], ['warning', 'Aviso'], ['error', 'Erro']];
+  const LV_TAG = { info: 'INFO', success: 'SUCC', warning: 'WARN', error: 'FAIL' };
+  const STATUS_LABEL = { failed: 'Falha', success: 'Sucesso', running: 'Em andamento', cancelled: 'Interrompida' };
+  const ICON_OK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg>';
+  const ICON_X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+
+  function renderExec() {
+    $('#exec-title').textContent = `Execução #${exec.id}`;
+    const badge = $('#exec-badge'); badge.className = `badge ${exec.status}`; badge.textContent = STATUS_LABEL[exec.status];
+    const live = $('#exec-live');
+    live.classList.toggle('idle', exec.status !== 'running');
+    live.lastElementChild.textContent = exec.status === 'running' ? 'Ao vivo · os logs chegam em tempo real' : 'Atualização em tempo real';
+    const end = exec.end || new Date(exec.start.getTime() + (exec.elapsed || 0) * 1000);
+    const dur = (end - exec.start) / 1000;
+    $('#exec-meta').innerHTML = [
+      ['Fluxo', exec.flow], ['Disparo', exec.trigger], ['Início', `Hoje, ${clock(exec.start)}`],
+      ['Fim', exec.end ? `Hoje, ${clock(exec.end)}` : '—'], ['Duração', fmtDur(dur)],
+      ['Contratos', exec.records != null ? nf(exec.records) : '—'],
+    ].map(([k, v]) => `<div><span>${k}</span><span>${esc(v)}</span></div>`).join('');
+    $('#timeline').innerHTML = exec.steps.map((s) => {
+      const info = s.status === 'success' ? `Duração: ${nf(s.dur, 1)} s` : s.status === 'failed' ? `Falhou após ${nf(s.dur, 1)} s`
+        : s.status === 'running' ? 'Em andamento...' : s.status === 'skipped' ? 'Não executada' : 'Aguardando';
+      const icon = s.status === 'success' ? ICON_OK : s.status === 'failed' ? ICON_X : '';
+      return `<li class="${s.status}"><span class="node">${icon}</span><div><div class="label">${STEP_LABELS[s.key]}</div><div class="info">${info}</div></div></li>`;
+    }).join('');
+    let diag = '';
+    if (exec.status === 'failed') diag = `<div class="diag"><div><h3><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>${exec.error.title}</h3><p>${exec.error.msg}</p></div><button type="button" class="btn btn-sm" id="shot-btn">Ver screenshot</button></div>`;
+    else if (exec.status === 'success') diag = `<div class="diag ok"><div><h3>${ICON_OK.replace('stroke-width="4"', 'stroke-width="3"')}Execução concluída</h3><p>${nf(exec.records)} contratos capturados do Contract Review Management em ${fmtDur(dur)}. Reexecução da #1042.</p></div></div>`;
+    else if (exec.status === 'cancelled') diag = `<div class="diag" style="border-color:var(--fg-faint);background:var(--surface-sunken)"><div><h3 style="color:var(--fg)">Execução interrompida por ${esc(PERSONA[state.role])}</h3><p class="muted">As etapas pendentes não foram executadas. A interrupção está registrada na auditoria.</p></div></div>`;
+    $('#diag').innerHTML = diag;
+    const shot = $('#shot-btn'); if (shot) shot.addEventListener('click', () => toast('Abre o screenshot salvo no momento da falha (<span class="mono">err_1042.png</span>).'));
+    renderLogs();
+    applyRole();
+  }
+
+  function renderLogs() {
+    const counts = Object.fromEntries(LEVELS.map(([k]) => [k, 0]));
+    exec.logs.forEach((l) => { counts[l.level]++; counts.all++; });
+    $('#levels').innerHTML = LEVELS.map(([k, l]) => `<button type="button" data-level="${k}" aria-pressed="${state.level === k}">${k === 'all' ? '' : '<i></i>'}${l}<span class="n">${counts[k]}</span></button>`).join('');
+    const q = state.search.trim().toLowerCase();
+    const rows = exec.logs.filter((l) => (state.level === 'all' || l.level === state.level) && (!q || l.msg.toLowerCase().includes(q)));
+    const hl = (s) => { const e = esc(s); if (!q) return e; return e.replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), (m) => `<mark>${m}</mark>`); };
+    const box = $('#logs');
+    box.innerHTML = `<div class="t">&gt; tail -f rpa_execution_${exec.id}.log</div>` + (rows.length
+      ? rows.map((l) => `<div class="lv-${l.level}"><span class="t">[${clock(l.t)}]</span> <span class="lv">[${LV_TAG[l.level]}]</span> ${hl(l.msg)}</div>`).join('')
+      : `<div class="empty">Nenhuma linha com esse filtro.</div>`);
+    if ($('#autoscroll').checked) box.scrollTop = box.scrollHeight;
+  }
+  $('#levels').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; state.level = b.dataset.level; renderLogs(); });
+  $('#log-search').addEventListener('input', (e) => { state.search = e.target.value; renderLogs(); });
+
+  // Exportar
+  $('#export-btn').addEventListener('click', (e) => {
+    const m = $('#export-menu'); m.hidden = !m.hidden; e.currentTarget.setAttribute('aria-expanded', String(!m.hidden));
+  });
+  document.addEventListener('click', (e) => { if (!e.target.closest('.menu-wrap')) { $('#export-menu').hidden = true; $('#export-btn').setAttribute('aria-expanded', 'false'); } });
+  $('#export-menu').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    $('#export-menu').hidden = true;
+    const filtered = state.level !== 'all' || state.search ? ' (com o filtro atual)' : '';
+    addAudit({ action: 'Exportou logs', target: `Execução #${exec.id}`, detail: `Formato .${b.dataset.fmt}${filtered}` });
+    toast(`Logs da execução #${exec.id} exportados em <span class="mono">.${b.dataset.fmt}</span>${filtered}.`);
+  });
+
+  // Reexecutar (simula a execução ao vivo, como o backend faria via SSE)
+  let timers = [], ticker;
+  $('#rerun-btn').addEventListener('click', () => { $('#rerun-confirm').hidden = false; });
+  $('#rerun-cancel').addEventListener('click', () => { $('#rerun-confirm').hidden = true; });
+  $('#rerun-go').addEventListener('click', () => {
+    $('#rerun-confirm').hidden = true;
+    const prevId = exec.id, me = PERSONA[state.role];
+    const start = new Date(); start.setFullYear(2026, 9, 13);
+    exec = { id: 1043, status: 'running', flow: 'Login + Captura LMS', start, end: null, trigger: `Reexecução · ${me}`, elapsed: 0,
+      steps: STEPS.map(([key]) => ({ key, status: 'pending' })), logs: [] };
+    state.level = 'all'; state.search = ''; $('#log-search').value = '';
+    addAudit({ action: 'Reexecutou', target: `Execução #${prevId}`, detail: `Nova execução #${exec.id}` });
+    renderExec();
+    toast(`Execução <span class="mono">#${exec.id}</span> iniciada. Acompanhe ao vivo.`);
+    const script = [
+      [0, 0, 'start', 'info', 'Iniciando navegador Chromium (headless: true)...'],
+      [0.8, 0, null, 'info', 'Contexto do navegador criado.'],
+      [1.4, 0, 'done', null, null, 0.6],
+      [1.4, 1, 'start', 'info', 'Acessando o autoatendimento LGE para gerar o OTP temporário.'],
+      [2.6, 1, null, 'info', 'Captcha detectado. Inicializando OCR local (ddddocr).'],
+      [4.6, 1, null, 'info', 'Captcha resolvido com 94% de confiança.'],
+      [5.6, 1, null, 'success', 'OTP temporário gerado: ***7C2'],
+      [5.8, 1, 'done', null, null, 10.8],
+      [5.8, 2, 'start', 'info', 'Navegando para https://sso.lge.com/'],
+      [7.0, 2, null, 'info', 'Preenchendo User ID e senha LDAP.'],
+      [8.4, 2, null, 'info', 'Campo #OTPPASSWORD renderizado. Inserindo OTP e enviando login.'],
+      [9.6, 2, null, 'success', 'Login SSO concluído.'],
+      [9.8, 2, 'done', null, null, 8.9],
+      [9.8, 3, 'start', 'info', 'Abrindo o portal New EP e o LMS (Contract Review Management).'],
+      [11.6, 3, null, 'success', 'Sessão reconhecida pelo LMS.'],
+      [11.8, 3, 'done', null, null, 4.7],
+      [11.8, 4, 'start', 'info', 'Aplicando filtros: Subsidiary Code LGESP, Request Date últimos 30 dias.'],
+      [13.6, 4, null, 'info', 'Página 1/3 da grade: 100 contratos lidos.'],
+      [15.4, 4, null, 'warning', 'Página 2/3 demorou 12 s para carregar. Seguindo.'],
+      [17.0, 4, null, 'info', 'Página 3/3 da grade: 87 contratos lidos.'],
+      [18.2, 4, null, 'success', '187 contratos capturados e gravados no banco.'],
+      [18.4, 4, 'done', null, null, 61.2],
+      [18.6, -1, 'finish', 'info', 'Contexto do navegador encerrado. Processo finalizado com código 0.'],
+    ];
+    script.forEach(([s, step, kind, level, msg, dur]) => timers.push(setTimeout(() => {
+      if (exec.status !== 'running') return;
+      if (kind === 'start') exec.steps[step].status = 'running';
+      if (kind === 'done') { exec.steps[step].status = 'success'; exec.steps[step].dur = dur; }
+      if (msg) exec.logs.push({ t: new Date(exec.start.getTime() + exec.elapsed * 1000), level, msg });
+      if (kind === 'finish') { exec.status = 'success'; exec.end = new Date(exec.start.getTime() + 86.4 * 1000); exec.records = 187; clearInterval(ticker); }
+      renderExec();
+    }, s * 1000)));
+    clearInterval(ticker);
+    ticker = setInterval(() => { exec.elapsed += 4.6; if (exec.status === 'running') { const d = $('#exec-meta div:nth-child(5) span:last-child'); if (d) d.textContent = fmtDur(exec.elapsed); } }, 1000);
+  });
+  $('#stop-btn').addEventListener('click', () => {
+    if (exec.status !== 'running') return;
+    timers.forEach(clearTimeout); timers = []; clearInterval(ticker);
+    exec.status = 'cancelled'; exec.end = new Date(exec.start.getTime() + exec.elapsed * 1000);
+    exec.steps.forEach((s) => { if (s.status === 'running' || s.status === 'pending') { s.status = 'skipped'; } });
+    exec.logs.push({ t: exec.end, level: 'warning', msg: `Interrupção pedida por ${PERSONA[state.role]}. Encerrando o navegador.` });
+    addAudit({ action: 'Interrompeu', target: `Execução #${exec.id}`, detail: `Após ${fmtDur(exec.elapsed)}` });
+    renderExec();
+  });
+
+  /* ---------- Auditoria ---------- */
+  const audit = [
+    ['13/10 14:20', 'Carla Mendes', 'operador', 'Exportou logs', 'Execução #1042', 'Formato .log'],
+    ['13/10 14:15', 'Carla Mendes', 'operador', 'Disparou execução', 'Execução #1042', 'Login + Captura LMS'],
+    ['13/10 11:02', 'Rafael Teixeira', 'admin', 'Alterou agenda', 'Fechamento Diário', '18:00 → 17:30'],
+    ['13/10 09:40', 'Rafael Teixeira', 'admin', 'Alterou perfil', 'Bruno Lima', 'Visualizador → Operador'],
+    ['13/10 08:31', 'Bruno Lima', 'visualizador', 'Entrou no sistema', '—', 'SSO LGE + OTP'],
+    ['12/10 18:07', 'Carla Mendes', 'operador', 'Interrompeu', 'Execução #1038', 'Execução atípica após 06m 12s'],
+    ['12/10 16:44', 'Rafael Teixeira', 'admin', 'Rotacionou credencial', 'Senha LDAP', 'Nova versão gravada no cofre'],
+    ['12/10 10:12', 'Ana Souza', 'operador', 'Reexecutou', 'Execução #1035', 'Nova execução #1036'],
+    ['11/10 15:30', 'Ana Souza', 'operador', 'Exportou logs', 'Execução #1031', 'Formato .csv'],
+    ['11/10 09:05', 'Rafael Teixeira', 'admin', 'Pausou agendamento', 'Abertura D+1', 'Feriado municipal'],
+    ['10/10 17:58', 'Carla Mendes', 'operador', 'Disparou execução', 'Execução #1027', 'Somente OTP'],
+  ].map(([when, user, role, action, target, detail]) => ({ when, user, role, action, target, detail }));
+  const ACTION_TONE = { 'Interrompeu': 'warn', 'Rotacionou credencial': 'brand', 'Alterou perfil': 'brand', 'Alterou agenda': 'brand', 'Pausou agendamento': 'warn', 'Disparou execução': 'ok', 'Reexecutou': 'ok' };
+  let freshCount = 0;
+  function addAudit({ action, target, detail }) {
+    const d = new Date();
+    audit.unshift({ when: `13/10 ${pad(d.getHours())}:${pad(d.getMinutes())}`, user: PERSONA[state.role], role: state.role, action, target, detail, fresh: true });
+    freshCount++;
+    renderAudit();
+  }
+  function renderAudit() {
+    const q = $('#audit-search').value.trim().toLowerCase(), act = $('#audit-action').value, usr = $('#audit-user').value;
+    const fillSel = (sel, vals, first) => { const cur = sel.value; sel.innerHTML = `<option value="">${first}</option>` + [...new Set(vals)].sort().map((v) => `<option${v === cur ? ' selected' : ''}>${esc(v)}</option>`).join(''); };
+    fillSel($('#audit-action'), audit.map((a) => a.action), 'Todas as ações');
+    fillSel($('#audit-user'), audit.map((a) => a.user), 'Todos os usuários');
+    const rows = audit.filter((a) => (!act || a.action === act) && (!usr || a.user === usr) && (!q || `${a.user} ${a.action} ${a.target} ${a.detail}`.toLowerCase().includes(q)));
+    $('#audit-body').innerHTML = rows.map((a) => `
+      <tr class="${a.fresh ? 'fresh' : ''}">
+        <td class="mono subtle" style="white-space:nowrap">${a.when}</td>
+        <td><div class="who"><span class="avatar">${initials(a.user)}</span><div>${esc(a.user)}<div class="subtle" style="font-size:12px">${ROLE_LABEL[a.role]}</div></div></div></td>
+        <td><span class="chip ${ACTION_TONE[a.action] || ''}"><span class="dot"></span>${esc(a.action)}</span></td>
+        <td style="white-space:nowrap">${esc(a.target)}</td>
+        <td class="muted">${esc(a.detail)}</td>
+      </tr>`).join('') || `<tr><td colspan="5" class="subtle" style="text-align:center;padding:32px">Nenhum registro com esses filtros.</td></tr>`;
+    audit.forEach((a) => (a.fresh = false));
+    $('#audit-count').textContent = `${rows.length} de ${audit.length} registros${freshCount ? ` · ${freshCount} gerado(s) agora nesta demonstração` : ''}`;
+    const nav = $('[data-nav="auditoria"]');
+    nav.title = freshCount ? `Auditoria (${freshCount} novo${freshCount > 1 ? 's' : ''})` : 'Auditoria';
+  }
+  ['#audit-search', '#audit-action', '#audit-user'].forEach((s) => $(s).addEventListener('input', renderAudit));
+
+  /* ---------- Configurações ---------- */
+  const secrets = [
+    { name: 'User ID corporativo', env: 'USER_ID', rot: 'Rotacionada há 42 dias', tone: 'ok', status: 'Configurada' },
+    { name: 'Senha LDAP', env: 'PASSWORD', rot: 'Rotacionada ontem', tone: 'warn', status: 'Expira em 5 dias' },
+    { name: 'Matrícula (Employee Number)', env: 'EMPLOYEE_NUMBER', rot: 'Rotacionada há 42 dias', tone: 'ok', status: 'Configurada' },
+    { name: 'Código de identificação pessoal', env: 'PERSONAL_IDENTIFICATION_CODE', rot: 'Rotacionada há 42 dias', tone: 'ok', status: 'Configurada' },
+  ];
+  function renderSecrets() {
+    $('#secrets').innerHTML = secrets.map((s, i) => `
+      <div class="secret">
+        <div><div class="name">${s.name}</div><div class="env">${s.env}</div></div>
+        <div class="masked" aria-label="valor oculto">••••••••••</div>
+        <div style="display:grid;gap:4px"><span class="chip ${s.tone}" style="justify-self:start"><span class="dot"></span>${s.status}</span><span class="subtle" style="font-size:12px">${s.rot}</span></div>
+        <button type="button" class="btn btn-sm" data-rotate="${i}">Atualizar valor</button>
+      </div>`).join('');
+  }
+  $('#secrets').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-rotate]'); if (!b) return;
+    const s = secrets[+b.dataset.rotate];
+    s.rot = 'Rotacionada agora'; s.status = 'Configurada'; s.tone = 'ok';
+    addAudit({ action: 'Rotacionou credencial', target: s.name, detail: 'Nova versão gravada no cofre' });
+    renderSecrets();
+    toast(`<strong>${s.name}</strong> atualizada no cofre. O valor não aparece no painel.`);
+  });
+  const users = [
+    ['Rafael Teixeira', 'rafael.teixeira', 'admin', 'Hoje, 11:02'],
+    ['Carla Mendes', 'carla.mendes', 'operador', 'Hoje, 14:20'],
+    ['Ana Souza', 'ana.souza', 'operador', 'Ontem, 10:12'],
+    ['Bruno Lima', 'bruno.lima', 'visualizador', 'Hoje, 08:31'],
+    ['Diego Ramos', 'diego.ramos', 'visualizador', '09/10, 16:05'],
+  ].map(([name, login, role, last]) => ({ name, login, role, last }));
+  function renderUsers() {
+    $('#users-body').innerHTML = users.map((u, i) => `
+      <tr>
+        <td><div class="who"><span class="avatar">${initials(u.name)}</span><div>${u.name}<div class="subtle mono" style="font-size:12px">${u.login}</div></div></div></td>
+        <td><select class="input" data-user="${i}" aria-label="Perfil de ${u.name}" ${u.name === PERSONA[state.role] ? 'disabled title="Você não pode mudar o próprio perfil"' : ''}>
+          ${Object.entries(ROLE_LABEL).map(([k, l]) => `<option value="${k}"${k === u.role ? ' selected' : ''}>${l}</option>`).join('')}</select></td>
+        <td class="mono subtle">${u.last}</td>
+      </tr>`).join('');
+  }
+  $('#users-body').addEventListener('change', (e) => {
+    const sel = e.target.closest('[data-user]'); if (!sel) return;
+    const u = users[+sel.dataset.user], from = ROLE_LABEL[u.role];
+    u.role = sel.value;
+    addAudit({ action: 'Alterou perfil', target: u.name, detail: `${from} → ${ROLE_LABEL[u.role]}` });
+    toast(`Perfil de <strong>${u.name}</strong> alterado para ${ROLE_LABEL[u.role]}.`);
+  });
+  $('#invite').addEventListener('click', () => toast('Convite por login corporativo LGE. O acesso começa como Visualizador.'));
+  $('#perm-body').innerHTML = PERMS.map(([, label, roles]) => `<tr><td>${label}</td>${['visualizador', 'operador', 'admin'].map((r) => `<td class="c">${roles.includes(r) ? '<span class="perm-yes" aria-label="sim">✓</span>' : '<span class="perm-no" aria-label="não">—</span>'}</td>`).join('')}</tr>`).join('');
+
+  /* ---------- Início ---------- */
+  renderSecrets();
+  renderAudit();
+  renderKpis();
+  renderExec();
+  applyRole();
+  route();
+})();
+</script>
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const nf = (n, d = 0) => n.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+  const DAY = 86400000;
+  const TODAY = new Date(2026, 9, 13);
+  const USD = 5.4;
+  const money = (v, cur) => `${cur === 'USD' ? 'US$' : 'R$'} ${nf(v, 2)}`;
+  const compact = (v) => v >= 1e6 ? `R$ ${nf(v / 1e6, 1)} mi` : `R$ ${nf(v / 1e3, 0)} mil`;
+  const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+  function rng(seed) { return () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  const r = rng(7);
+  const pick = (a) => a[Math.floor(r() * a.length)];
+  const between = (a, b) => Math.round(a + r() * (b - a));
+
+  /* Etapas do fluxo, na ordem do LMS (Progress State da base Ideal Raw) */
+  const STAGES = [
+    { key: 'fila', lms: 'Pending Assignment', pt: 'Pendente de revisor', seg: 0 },
+    { key: 'revisao', lms: 'Legal Review in Progress', pt: 'Revisão do jurídico', seg: 1 },
+    { key: 'revok', lms: 'Review Completed', pt: 'Revisão concluída', seg: 1 },
+    { key: 'consenso', lms: 'Legal Team Consent in Progress', pt: 'Consenso do jurídico', seg: 2 },
+    { key: 'consok', lms: 'Legal Team Consent Completed', pt: 'Consenso concluído', seg: 2 },
+    { key: 'aprov', lms: 'Processing Approval for Execution', pt: 'Aprovação em andamento', seg: 3 },
+    { key: 'registro', lms: 'Approval Completed', pt: 'Aprovado, aguardando registro', seg: 4 },
+  ];
+  const SEGS = ['Fila até o revisor', 'Revisão do jurídico', 'Consenso', 'Aprovação', 'Assinatura e registro'];
+
+  const TYPES = {
+    'Leasing/Rental/Real Estate': ['Warehouse Rental - Industrial District', 'Rental Renewal - Expat Apartment', 'Termination - Rental MAO'],
+    'General Services/Contracting': ['Building Maintenance Services', 'Support Contract Renew for L4 Switches', 'Cleaning and Conservation Services'],
+    'Purchase/Supply': ['EPS Packaging Supply', 'Electronic Components Supply', 'Spare Parts Framework Agreement'],
+    'IT/Software': ['MES Software License', 'Cloud Backup Subscription', 'ERP Support Hours'],
+    'Logistics': ['Road Freight MAO-SP', 'Bonded Warehouse Services', 'Customs Brokerage'],
+    'Marketing/Advertising': ['OLED Launch Campaign', 'Retail Trade Marketing', 'Influencer Agreement'],
+    'Confidentiality (NDA)': ['Mutual NDA', 'NDA - Supplier Qualification', 'NDA - Technology Evaluation'],
+  };
+  const TYPE_W = [16, 22, 18, 12, 12, 10, 10];
+  const DEPTS = ['LGESP GA Support Part - MAO', 'LGESP IT CNS Team - MAO', 'LGESP Procurement - MAO', 'LGESP SCM - MAO', 'LGESP HR - SP', 'LGESP Marketing - SP'];
+  const CPS = ['Norte Tech Engenharia Ltda', 'Amazonas Logística S.A.', 'Solaris Facilities Ltda', 'Rio Negro Imóveis Ltda', 'Delta Software do Brasil Ltda', 'Ponta Negra Transportes Ltda',
+    'Vértice Consultoria Tributária', 'Manaus Embalagens Ltda', 'Kora Telecom Serviços Ltda', 'Atlas Segurança Patrimonial', 'Iguaçu Componentes Eletrônicos', 'Prisma Marketing Digital Ltda'];
+  // Revisores fictícios. Cada um com um ritmo de revisão diferente para o gráfico ter o que mostrar.
+  const REVIEWERS = [['Juliana Prado', 2, 8], ['Marcos Vieira', 3, 10], ['Patrícia Nogueira', 4, 17], ['Felipe Arantes', 2, 9]];
+  const pickType = () => { let x = r() * 100, i = 0; while (x > TYPE_W[i]) { x -= TYPE_W[i]; i++; } return Object.keys(TYPES)[i]; };
+  const addDays = (d, n) => new Date(d.getTime() + n * DAY);
+  const daysBetween = (a, b) => Math.round((b - a) / DAY);
+
+  /* Contratos solicitados nos últimos 12 meses (fluxo) */
+  const flow = [];
+  for (let i = 0; i < 920; i++) {
+    const req = addDays(TODAY, -Math.floor(Math.pow(r(), 0.85) * 365));
+    const type = pickType();
+    const rev = pick(REVIEWERS);
+    const cur = r() < 0.25 ? 'USD' : 'BRL';
+    const amount = Math.round(Math.exp(8.6 + r() * 4.2) * 100) / 100 / (cur === 'USD' ? USD : 1);
+    // Fila e registro pioraram nos meses de mais volume (ago–out), para o gráfico de ciclo mostrar tendência.
+    const busy = req.getMonth() >= 7 && req.getMonth() <= 9 ? 1.5 : 1;
+    const dur = {
+      fila: Math.round(between(1, 6) * busy), revisao: between(rev[1], rev[2]), revok: between(0, 2),
+      consenso: between(1, 5), consok: between(0, 2), aprov: between(1, 7), registro: Math.round(between(3, 18) * (type === 'Leasing/Rental/Real Estate' ? 1.4 : 1)),
+    };
+    const c = {
+      num: `C${req.getFullYear()}${String(810000 + i * 19 + between(0, 30)).padStart(6, '0')}`, cp: pick(CPS), name: pick(TYPES[type]), type,
+      dept: pick(DEPTS), reviewer: rev[0], cur, amount, req, dur: {}, stage: null, since: 0, final: null, comments: false,
+    };
+    const dropAt = r() < 0.06 ? pick(['aprov', 'registro']) : null;
+    const rejectAt = !dropAt && r() < 0.04 ? pick(['consenso', 'aprov']) : null;
+    let t = req;
+    for (const s of STAGES) {
+      const end = addDays(t, dur[s.key]);
+      if (end > TODAY) { c.stage = s.key; c.since = daysBetween(t, TODAY); c.comments = s.key === 'revisao' && r() < 0.3; break; }
+      c.dur[s.key] = dur[s.key];
+      t = end;
+      if (s.key === dropAt) { c.final = 'drop'; break; }
+      if (s.key === rejectAt) { c.final = 'rejected'; break; }
+    }
+    if (!c.stage && !c.final) {
+      c.registered = t;
+      const start = addDays(t, between(0, 15));
+      c.end = new Date(start); c.end.setMonth(c.end.getMonth() + pick([12, 12, 24, 36]));
+      c.final = c.end > TODAY ? 'effective' : 'expired';
+    }
+    if (c.final === 'drop' || c.final === 'rejected') c.closed = t;
+    flow.push(c);
+  }
+  /* Carteira de contratos vigentes mais antigos (para vencimentos) */
+  const stock = [];
+  for (let i = 0; i < 640; i++) {
+    const type = pickType(), cur = r() < 0.25 ? 'USD' : 'BRL';
+    stock.push({ type, dept: pick(DEPTS), cur, amount: Math.round(Math.exp(8.6 + r() * 4.2) * 100) / 100 / (cur === 'USD' ? USD : 1), end: addDays(TODAY, between(1, 720)) });
+  }
+  const brl = (c) => c.cur === 'USD' ? c.amount * USD : c.amount;
+
+  const st = { months: 6, dept: '', type: '', stage: '' };
+  const fillSel = (sel, vals) => vals.forEach((v) => sel.insertAdjacentHTML('beforeend', `<option>${esc(v)}</option>`));
+  fillSel($('#ct-dept'), DEPTS); fillSel($('#ct-type'), Object.keys(TYPES));
+
+  function render() {
+    const from = new Date(TODAY); from.setMonth(from.getMonth() - st.months);
+    const match = (c) => (!st.dept || c.dept === st.dept) && (!st.type || c.type === st.type);
+    const all = flow.filter(match);
+    const inPeriod = all.filter((c) => c.req >= from);
+    const open = all.filter((c) => c.stage);
+    const done = inPeriod.filter((c) => c.registered);
+    const stk = stock.filter(match).concat(all.filter((c) => c.final === 'effective'));
+    $('#ct-count').textContent = `${nf(all.length + stock.filter(match).length)} contratos na base`;
+
+    /* KPIs */
+    const lead = done.map((c) => daysBetween(c.req, c.registered)).sort((a, b) => a - b);
+    const q = (p) => lead.length ? lead[Math.min(lead.length - 1, Math.floor(p * lead.length))] : 0;
+    const reviewed = inPeriod.filter((c) => c.dur.revisao != null);
+    const onTime = reviewed.filter((c) => c.dur.revisao <= 7).length;
+    const otPct = reviewed.length ? (onTime / reviewed.length) * 100 : 0;
+    const soon = stk.filter((c) => c.end > TODAY && c.end <= addDays(TODAY, 90));
+    const pending = open.filter((c) => c.stage === 'fila').length;
+    const kp = [
+      ['Em andamento', nf(open.length), `<p class="delta flat"><span>${pending} aguardando revisor · ${open.filter((c) => c.stage === 'revisao').length} em revisão</span></p>`],
+      ['Da solicitação à vigência', `${q(0.5)}<small>dias</small>`, `<p class="delta flat"><span>mediana · 9 em cada 10 em até ${q(0.9)} dias</span></p>`],
+      ['Revisões no prazo', `${nf(otPct, 0)}<small>%</small>`, `<p class="delta ${otPct >= 80 ? 'up' : 'down'}">${otPct >= 80 ? 'acima' : 'abaixo'} da meta de 80% <span>· ${reviewed.length - onTime} atrasadas</span></p>`],
+      ['Vencem em 90 dias', nf(soon.length), `<p class="delta flat"><span>${compact(soon.reduce((s, c) => s + brl(c), 0))} em contratos para renovar</span></p>`],
+    ];
+    $('#ct-kpis').innerHTML = kp.map(([l, v, d]) => `<div class="card kpi"><p class="eyebrow">${l}</p><div class="value">${v}</div>${d}</div>`).join('');
+
+    /* Pipeline */
+    const byStage = STAGES.map((s) => { const cs = open.filter((c) => c.stage === s.key); return { s, n: cs.length, avg: cs.length ? cs.reduce((a, c) => a + c.since, 0) / cs.length : 0, max: cs.reduce((a, c) => Math.max(a, c.since), 0) }; });
+    const maxN = Math.max(1, ...byStage.map((x) => x.n));
+    const hot = byStage.filter((x) => x.n >= 3).reduce((a, x) => (x.n * x.avg > a.n * a.avg ? x : a), byStage[0]);
+    $('#ct-stages').innerHTML = `<div class="stage head"><span></span><span>Etapa</span><span class="barh">Contratos</span><span class="num">Média</span><span class="num old">Mais antigo</span></div>` +
+      byStage.map((x, i) => `
+      <button type="button" class="stage${x === hot ? ' hot' : ''}" data-stage="${x.s.key}" aria-pressed="${st.stage === x.s.key}" title="${x.s.lms}">
+        <span class="n">${i + 1}</span>
+        <span class="lbl"><span>${x.s.pt}${x === hot ? '<span class="hot-tag">Gargalo</span>' : ''}</span><small>${x.s.lms}</small></span>
+        <span class="bar"><span class="track"><span class="fill" style="display:block;width:${(x.n / maxN) * 100}%"></span></span><span class="mono">${x.n}</span></span>
+        <span class="num">${nf(x.avg, 0)} d</span>
+        <span class="num old${x.max > 14 ? ' warn' : ''}">${x.max} d</span>
+      </button>`).join('');
+
+    /* Desfechos */
+    const ends = inPeriod.filter((c) => c.final);
+    const out = [['effective', 'Vigente', 's-ok'], ['expired', 'Vigência expirada', 's-neutral'], ['drop', 'Desistência (Biz-Drop)', 's-warn'], ['rejected', 'Rejeitado', 's-bad']]
+      .map(([k, l, cls]) => ({ l, cls, n: ends.filter((c) => c.final === k).length }));
+    const maxO = Math.max(1, ...out.map((o) => o.n));
+    $('#ct-out-hint').textContent = `${ends.length} concluídos no período`;
+    $('#ct-outcomes').innerHTML = out.map((o) => `
+      <div class="hbar"><div class="row"><span>${o.l}</span><span class="mono">${o.n} · ${nf(ends.length ? (o.n / ends.length) * 100 : 0, 0)}%</span></div>
+      <div class="track"><div class="fill ${o.cls}" style="width:${(o.n / maxO) * 100}%"></div></div></div>`).join('');
+    const signed = done.reduce((s, c) => s + brl(c), 0);
+    $('#ct-value').innerHTML = `<span>Valor dos contratos que entraram em vigência no período</span><strong>${compact(signed)}</strong><span class="subtle" style="font-size:12px">Contratos em dólar convertidos a R$ ${nf(USD, 2)}</span>`;
+
+    /* Revisores */
+    $('#ct-reviewers').innerHTML = REVIEWERS.map(([name]) => {
+      const mine = reviewed.filter((c) => c.reviewer === name);
+      const avg = mine.length ? mine.reduce((s, c) => s + c.dur.revisao, 0) / mine.length : 0;
+      const ok = mine.length ? (mine.filter((c) => c.dur.revisao <= 7).length / mine.length) * 100 : 0;
+      const now = open.filter((c) => c.reviewer === name && (c.stage === 'revisao')).length;
+      return `<tr><td><div class="who"><span class="avatar">${name.split(' ').map((w) => w[0]).join('')}</span>${name}</div></td>
+        <td class="c mono">${now}</td><td class="c mono">${mine.length}</td><td class="c mono">${nf(avg, 1)} d</td>
+        <td><div class="pct"><span class="track"><span class="fill${ok < 80 ? ' low' : ''}" style="display:block;width:${ok}%"></span></span><span class="mono">${nf(ok, 0)}%</span></div></td></tr>`;
+    }).join('');
+
+    /* Atenção */
+    let att = open.slice().sort((a, b) => b.since - a.since);
+    if (st.stage) att = att.filter((c) => c.stage === st.stage);
+    const sName = st.stage ? STAGES.find((s) => s.key === st.stage).pt : '';
+    $('#ct-att-filter').outerHTML = st.stage
+      ? `<span id="ct-att-filter" class="filter-pill">Etapa: ${sName} · ${att.length} contratos<button type="button" id="ct-clear" aria-label="Limpar filtro">✕</button></span>`
+      : `<span id="ct-att-filter" class="hint">contratos parados há mais tempo na etapa atual</span>`;
+    $('#ct-attention').innerHTML = att.slice(0, 8).map((c) => {
+      const s = STAGES.find((x) => x.key === c.stage);
+      const lms = c.comments ? 'Legal Comments Provided' : s.lms;
+      const tone = c.since > 14 ? 'bad' : c.since > 7 ? 'warn' : '';
+      return `<tr>
+        <td><div class="cname">${esc(c.name)}</div><div class="cnum">${c.num} · ${esc(c.type)}</div></td>
+        <td>${esc(c.cp)}</td>
+        <td><span class="chip ${tone}" title="${lms}"><span class="dot"></span>${c.comments ? 'Comentários do jurídico' : s.pt}</span></td>
+        <td class="c mono" style="${c.since > 14 ? 'color:var(--danger);font-weight:700' : ''}">${c.since} d</td>
+        <td style="white-space:nowrap">${c.stage === 'fila' ? '<span class="subtle">a definir</span>' : c.reviewer}</td>
+        <td class="subtle" style="white-space:nowrap">${esc(c.dept)}</td>
+        <td class="mono" style="text-align:right;white-space:nowrap">${money(c.amount, c.cur)}</td></tr>`;
+    }).join('') || `<tr><td colspan="7" class="subtle" style="text-align:center;padding:28px">Nenhum contrato nesta etapa.</td></tr>`;
+
+    st._done = done; st._stk = stk; st._from = from;
+    drawCycle(); drawExp();
+  }
+
+  const tipAt = (host, tip, cx, top, html) => {
+    tip.hidden = false; tip.innerHTML = html;
+    const W = host.clientWidth;
+    tip.style.left = `${Math.min(Math.max(cx - tip.offsetWidth / 2, 0), W - tip.offsetWidth)}px`;
+    tip.style.top = `${Math.max(0, top - tip.offsetHeight - 10)}px`;
+  };
+
+  function drawCycle() {
+    const host = $('#ct-cycle'); if (!host || host.offsetParent === null) return;
+    $('#ct-cycle-legend').innerHTML = SEGS.map((s, i) => `<span><i class="sq s${i + 1}"></i>${s}</span>`).join('');
+    const months = [];
+    for (let k = st.months - 1; k >= 0; k--) { const d = new Date(TODAY.getFullYear(), TODAY.getMonth() - k, 1); months.push(d); }
+    const data = months.map((m) => {
+      const cs = st._done.filter((c) => c.req.getFullYear() === m.getFullYear() && c.req.getMonth() === m.getMonth());
+      const segs = [0, 0, 0, 0, 0];
+      cs.forEach((c) => STAGES.forEach((s) => (segs[s.seg] += c.dur[s.key] || 0)));
+      return { m, n: cs.length, segs: segs.map((v) => (cs.length ? v / cs.length : 0)) };
+    });
+    const W = Math.max(host.clientWidth, 280), H = 260, pl = 40, pr = 8, pt = 12, pb = 30;
+    const maxV = Math.max(10, ...data.map((d) => d.segs.reduce((a, b) => a + b, 0)));
+    const top = Math.ceil(maxV / 10) * 10;
+    const y = (v) => pt + (1 - v / top) * (H - pt - pb);
+    const bw = (W - pl - pr) / data.length, cw = Math.min(56, bw * 0.62);
+    let g = '';
+    for (let t = 0; t <= top; t += top / 5) g += `<line class="grid${t === 0 ? ' base' : ''}" x1="${pl}" x2="${W - pr}" y1="${y(t)}" y2="${y(t)}"/><text x="${pl - 8}" y="${y(t) + 4}" text-anchor="end">${nf(t)} d</text>`;
+    data.forEach((d, i) => {
+      const cx = pl + bw * i + bw / 2;
+      let acc = 0;
+      d.segs.forEach((v, j) => { if (v <= 0) return; const y1 = y(acc + v), y0 = y(acc); g += `<rect class="col seg${j + 1}" x="${cx - cw / 2}" y="${y1}" width="${cw}" height="${Math.max(0, y0 - y1)}" ${j === 4 || d.segs.slice(j + 1).every((z) => z <= 0) ? 'rx="3"' : ''}/>`; acc += v; });
+      if (!d.n) g += `<text x="${cx}" y="${y(0) - 6}" text-anchor="middle">—</text>`;
+      g += `<text x="${cx}" y="${H - 10}" text-anchor="middle">${MONTHS[d.m.getMonth()]}${d.m.getMonth() === 0 || i === 0 ? '/' + String(d.m.getFullYear()).slice(2) : ''}</text>`;
+      g += `<rect class="colhit" data-i="${i}" x="${pl + bw * i}" y="${pt}" width="${bw}" height="${H - pt - pb}"/>`;
+    });
+    host.innerHTML = `<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="Tempo médio até a vigência por mês de solicitação, dividido por etapa">${g}</svg><div class="tip" hidden></div>`;
+    const tip = $('.tip', host);
+    $$('.colhit', host).forEach((el) => {
+      el.addEventListener('mouseenter', () => {
+        const d = data[+el.dataset.i], tot = d.segs.reduce((a, b) => a + b, 0);
+        const cx = pl + bw * +el.dataset.i + bw / 2;
+        tipAt(host, tip, cx, y(tot), `<div class="subtle">Solicitados em ${MONTHS[d.m.getMonth()]}/${d.m.getFullYear()} · ${d.n} já vigentes</div>` +
+          (d.n ? SEGS.map((s, j) => `<div class="row"><span><span class="sw" style="background:var(--s${j + 1})"></span>${s}</span><b>${nf(d.segs[j], 1)} d</b></div>`).reverse().join('') + `<div class="row" style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px"><span>Total</span><b>${nf(tot, 1)} d</b></div>` : '<div>Nenhum contrato concluído ainda</div>'));
+      });
+      el.addEventListener('mouseleave', () => (tip.hidden = true));
+    });
+  }
+
+  function drawExp() {
+    const host = $('#ct-exp'); if (!host || host.offsetParent === null) return;
+    const data = [];
+    for (let k = 0; k < 12; k++) {
+      const m = new Date(TODAY.getFullYear(), TODAY.getMonth() + k, 1), m2 = new Date(TODAY.getFullYear(), TODAY.getMonth() + k + 1, 1);
+      const cs = st._stk.filter((c) => c.end >= (k === 0 ? TODAY : m) && c.end < m2);
+      data.push({ m, n: cs.length, v: cs.reduce((s, c) => s + brl(c), 0) });
+    }
+    const W = Math.max(host.clientWidth, 280), H = 260, pl = 32, pr = 4, pt = 20, pb = 30;
+    const top = Math.max(5, Math.ceil(Math.max(...data.map((d) => d.n)) / 5) * 5);
+    const y = (v) => pt + (1 - v / top) * (H - pt - pb);
+    const bw = (W - pl - pr) / 12, cw = Math.min(30, bw * 0.6);
+    let g = '';
+    for (let t = 0; t <= top; t += top / 5) g += `<line class="grid${t === 0 ? ' base' : ''}" x1="${pl}" x2="${W - pr}" y1="${y(t)}" y2="${y(t)}"/><text x="${pl - 6}" y="${y(t) + 4}" text-anchor="end">${t}</text>`;
+    data.forEach((d, i) => {
+      const cx = pl + bw * i + bw / 2;
+      g += `<rect class="${i < 3 ? 'col-hi' : 'col-lo'}" x="${cx - cw / 2}" y="${y(d.n)}" width="${cw}" height="${y(0) - y(d.n)}" rx="3"/>`;
+      if (i < 3) g += `<text class="vlabel" x="${cx}" y="${y(d.n) - 6}" text-anchor="middle">${d.n}</text>`;
+      if (i % (W < 480 ? 2 : 1) === 0) g += `<text x="${cx}" y="${H - 10}" text-anchor="middle">${MONTHS[d.m.getMonth()]}</text>`;
+      g += `<rect class="colhit" data-i="${i}" x="${pl + bw * i}" y="${pt}" width="${bw}" height="${H - pt - pb}"/>`;
+    });
+    host.innerHTML = `<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="Contratos vigentes que vencem em cada um dos próximos 12 meses">${g}</svg><div class="tip" hidden></div>
+      <div class="legend" style="margin-top:8px"><span><i class="sq" style="background:var(--brand)"></i>Próximos 90 dias: hora de decidir a renovação</span></div>`;
+    const tip = $('.tip', host);
+    $$('.colhit', host).forEach((el) => {
+      el.addEventListener('mouseenter', () => {
+        const i = +el.dataset.i, d = data[i];
+        tipAt(host, tip, pl + bw * i + bw / 2, y(d.n), `<div class="subtle">${MONTHS[d.m.getMonth()]}/${d.m.getFullYear()}</div><div><b>${d.n}</b> contratos · <b>${compact(d.v)}</b></div>`);
+      });
+      el.addEventListener('mouseleave', () => (tip.hidden = true));
+    });
+  }
+
+  $('#ct-period').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    st.months = +b.dataset.months; $$('#ct-period button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); render();
+  });
+  $('#ct-dept').addEventListener('change', (e) => { st.dept = e.target.value; render(); });
+  $('#ct-type').addEventListener('change', (e) => { st.type = e.target.value; render(); });
+  $('#ct-stages').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-stage]'); if (!b) return;
+    st.stage = st.stage === b.dataset.stage ? '' : b.dataset.stage; render();
+  });
+  document.addEventListener('click', (e) => { if (e.target.closest('#ct-clear')) { st.stage = ''; render(); } });
+  $('#ct-export').addEventListener('click', () => window.__toast && window.__toast('Base Ideal Raw exportada em <span class="mono">.xlsx</span>, com as mesmas colunas da planilha de hoje e os filtros aplicados.'));
+  addEventListener('hashchange', () => requestAnimationFrame(() => { drawCycle(); drawExp(); }));
+  addEventListener('resize', () => { drawCycle(); drawExp(); });
+  render();
+  requestAnimationFrame(() => { drawCycle(); drawExp(); });
+})();
+</script>
