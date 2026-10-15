@@ -26,7 +26,7 @@ class MonitorClient:
         base_url: str | None,
         token: str | None = None,
         session: Any = None,
-        timeout: float = 15.0,
+        timeout: float | None = 15.0,
     ) -> None:
         self.base_url = (base_url or "").rstrip("/")
         self.token = token or ""
@@ -48,10 +48,9 @@ class MonitorClient:
         if not self.ativo:
             return None
         url = f"{self.base_url}{path}"
+        extra = {"timeout": self.timeout} if self.timeout is not None else {}
         try:
-            response = self.session.request(
-                method, url, json=payload, headers={TOKEN_HEADER: self.token}, timeout=self.timeout
-            )
+            response = self.session.request(method, url, json=payload, headers={TOKEN_HEADER: self.token}, **extra)
         except Exception as exc:  # rede fora, DNS, timeout...
             logger.warning("API do monitor indisponível (%s %s): %s", method, path, exc)
             return None

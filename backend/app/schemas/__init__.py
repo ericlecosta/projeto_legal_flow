@@ -3,16 +3,29 @@ Schemas de resposta da API. Os campos são snake_case no Python e serializados e
 no mesmo formato das interfaces do front-end (frontend/src/app/shared/models/).
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Generic, Literal, TypeVar
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 ExecutionStatus = Literal["success", "failed", "atypical", "running"]
 ExecutionTrigger = Literal["scheduled", "manual"]
-ExecutionFlow = Literal["login_capture", "otp_only"]
-StepKey = Literal["start_session", "otp_captcha", "sso_login", "lms_access", "contract_capture"]
+SimulatedFlow = Literal["login_capture", "otp_only"]
+ExecutionFlow = Literal["login_capture", "otp_only", "contract_extraction"]
+StepKey = Literal[
+    # simulador
+    "start_session",
+    "otp_captcha",
+    "sso_login",
+    "lms_access",
+    "contract_capture",
+    # robô real (ideal_raw_RPA/src/pipeline.py)
+    "lms_login",
+    "report_download",
+    "contract_details",
+    "data_upload",
+]
 StepStatus = Literal["success", "failed", "running", "pending", "skipped"]
 LogLevel = Literal["info", "warning", "error", "success"]
 PeriodFilter = Literal["7d", "30d", "all"]
@@ -95,5 +108,104 @@ class Overview(CamelModel):
 
 
 class RunRequest(CamelModel):
-    flow: ExecutionFlow = "login_capture"
+    flow: SimulatedFlow = "login_capture"
     headless: bool = True
+
+
+# ---------------------------------------------------------------------------
+# Ingestão do robô (/api/rpa/)
+# ---------------------------------------------------------------------------
+
+
+class RpaStepIn(CamelModel):
+    key: StepKey
+    label: str = Field(max_length=64)
+
+
+class RpaExecutionStart(CamelModel):
+    flow: ExecutionFlow = "contract_extraction"
+    trigger: ExecutionTrigger = "manual"
+    steps: list[RpaStepIn] = []
+
+
+class RpaExecutionCreated(CamelModel):
+    id: int
+
+
+class RpaStepUpdate(CamelModel):
+    status: StepStatus
+    duration_seconds: float | None = None
+
+
+class RpaLogsIn(CamelModel):
+    logs: list[LogEntry] = Field(max_length=1000)
+
+
+class RpaExecutionFinish(CamelModel):
+    status: Literal["success", "failed", "atypical"]
+    records: int | None = None
+    error_title: str | None = Field(default=None, max_length=255)
+    error_message: str | None = None
+
+
+class ContractIn(CamelModel):
+    """Um contrato da base Ideal Raw, já consolidado pelo robô (ideal_raw_RPA/src/consolidation)."""
+
+    contract_number: str = Field(min_length=1, max_length=32)
+    management_number: str | None = None
+    counterparty: str | None = None
+    contract_name: str | None = None
+    contract_type: str | None = None
+    requester: str | None = None
+    department: str | None = None
+    progress_state: str | None = None
+    legal_reviewer: str | None = None
+    period_start: date | None = None
+    period_end: date | None = None
+    review_requested_at: date | None = None
+    legal_review_started_at: date | None = None
+    review_completed_at: date | None = None
+    consent_requested_at: date | None = None
+    consent_completed_at: date | None = None
+    approval_requested_at: date | None = None
+    approval_completed_at: date | None = None
+    effective_at: date | None = None
+    biz_drop_completed_at: date | None = None
+    currency: str | None = Field(default=None, max_length=8)
+    amount: float | None = None
+    flags: dict[str, bool] = {}
+    raw: dict[str, str | None] = {}
+
+
+class ContractsUpload(CamelModel):
+    execution_id: int | None = None
+    contracts: list[ContractIn]
+
+
+class ContractsUploadResult(CamelModel):
+    received: int
+    created: int
+    updated: int
+
+
+# ---------------------------------------------------------------------------
+# Contratos (/api/contracts/)
+# ---------------------------------------------------------------------------
+
+
+class Contract(ContractIn):
+    id: int
+    last_execution_id: int | None
+    updated_at: datetime
+
+
+class ProgressStateCount(CamelModel):
+    progress_state: str | None
+    count: int
+
+
+class ContractSummary(CamelModel):
+    total: int
+    by_progress_state: list[ProgressStateCount]
+    last_updated_at: datetime | None
+    last_execution_id: int | None

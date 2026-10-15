@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import SQLAlchemyError
 
 from app import models  # noqa: F401  (registra os modelos no Base.metadata)
-from app.api.routes import executions, health, overview
+from app.api.routes import contracts, executions, health, overview, rpa
 from app.core.config import get_settings
 from app.db import Base, SessionLocal, engine
 from app.simulator.runner import recover_orphans, scheduled_runner
@@ -33,13 +33,13 @@ async def lifespan(_: FastAPI):
         orphans = recover_orphans()
         if orphans:
             logger.warning("%d execução(ões) em andamento marcadas como interrompidas.", orphans)
-        if settings.seed_on_startup:
+        if settings.simulated and settings.seed_on_startup:
             with SessionLocal() as db:
                 seed(db, days=settings.seed_days, failure_rate=settings.simulator_failure_rate)
     except SQLAlchemyError as exc:
         logger.warning("Banco de dados indisponível, tabelas não criadas: %s", exc)
 
-    if settings.simulator_scheduler_enabled:
+    if settings.simulated and settings.simulator_scheduler_enabled:
         scheduled_runner.start()
     yield
     scheduled_runner.shutdown()
@@ -64,4 +64,6 @@ api_router = APIRouter(prefix=settings.api_prefix)
 api_router.include_router(health.router)
 api_router.include_router(overview.router)
 api_router.include_router(executions.router)
+api_router.include_router(contracts.router)
+api_router.include_router(rpa.router)
 app.include_router(api_router)
