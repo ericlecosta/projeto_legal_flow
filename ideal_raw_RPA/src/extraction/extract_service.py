@@ -15,6 +15,7 @@ logger = logging.getLogger("rpa_lms.extract")
 
 class ExtractError(Exception):
     """Exceção disparada quando ocorre falha no fluxo de extração de dados."""
+
     pass
 
 
@@ -27,7 +28,7 @@ def extrair_relatorio_contratos(
     timeout: int = 30000,
 ) -> str:
     """
-    Realiza o fluxo de extração de contratos no sistema LMS, aplicando os filtros 
+    Realiza o fluxo de extração de contratos no sistema LMS, aplicando os filtros
     de Subsidiary Code e período (Request Date), e realizando o download do relatório.
 
     Args:
@@ -41,9 +42,8 @@ def extrair_relatorio_contratos(
     Returns:
         str: Caminho absoluto onde o arquivo de relatório foi salvo.
     """
-    contract_search_url = (
-        contract_search_url 
-        or os.getenv("LMS_CONTRACT_SEARCH_URL", "https://lms.lge.com/#/app/contract/search")
+    contract_search_url = contract_search_url or os.getenv(
+        "LMS_CONTRACT_SEARCH_URL", "https://lms.lge.com/#/app/contract/search"
     )
 
     if not caminho_destino:

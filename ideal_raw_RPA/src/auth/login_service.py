@@ -19,6 +19,7 @@ logger = logging.getLogger("rpa_lms.login")
 
 class LoginError(Exception):
     """Exceção disparada quando ocorre falha no fluxo de login."""
+
     pass
 
 
@@ -38,6 +39,7 @@ def _carregar_variaveis_ambiente():
 
 def _setup_dialog_handler(page_or_context):
     """Manipulador para aceitar alertas do navegador de forma silenciosa e resiliente."""
+
     def _on_dialog(dialog):
         try:
             logger.info(f"[Alerta do Navegador] {dialog.message}")

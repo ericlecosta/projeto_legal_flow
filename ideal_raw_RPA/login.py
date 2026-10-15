@@ -29,6 +29,7 @@ if __name__ == "__main__":
     page = None
     try:
         import os
+
         headless_mode = os.getenv("HEADLESS", "false").lower() in ("true", "1", "yes")
 
         # Executa o login completo e navega para LMS_INDEX

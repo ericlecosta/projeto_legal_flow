@@ -18,6 +18,7 @@ logger = logging.getLogger("rpa_lms.otp")
 
 class OTPRetrievalError(Exception):
     """Exceção disparada quando não é possível recuperar o OTP temporário."""
+
     pass
 
 
@@ -37,6 +38,7 @@ def _carregar_variaveis_ambiente():
 
 def _setup_dialog_handler(page_or_context):
     """Manipulador resiliente de diálogos nativos do navegador."""
+
     def _on_dialog(dialog):
         try:
             logger.info(f"[Alerta do Navegador] {dialog.message}")

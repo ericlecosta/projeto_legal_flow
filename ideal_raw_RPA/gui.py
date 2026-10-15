@@ -92,83 +92,139 @@ class RPAApp(ctk.CTk):
         topo = ctk.CTkFrame(self, fg_color=LG_RED, corner_radius=0, height=76)
         topo.pack(fill="x")
         topo.pack_propagate(False)
-        ctk.CTkLabel(topo, text="RPA LMS  ·  Automação de Login", font=fonte_titulo,
-                     text_color=WHITE).pack(side="left", padx=24)
-        ctk.CTkLabel(topo, text="Ideal Raw RPA — Equipe 1 Legal", font=fonte_menor,
-                     text_color=WHITE).pack(side="right", padx=24)
+        ctk.CTkLabel(topo, text="RPA LMS  ·  Automação de Login", font=fonte_titulo, text_color=WHITE).pack(
+            side="left", padx=24
+        )
+        ctk.CTkLabel(topo, text="Ideal Raw RPA — Equipe 1 Legal", font=fonte_menor, text_color=WHITE).pack(
+            side="right", padx=24
+        )
 
         corpo = ctk.CTkFrame(self, fg_color="transparent")
         corpo.pack(fill="both", expand=True, padx=20, pady=20)
 
         # Painel de controles (esquerda)
-        painel = ctk.CTkFrame(corpo, fg_color=PANEL, border_color=PANEL_BORDER,
-                              border_width=1, corner_radius=12, width=280)
+        painel = ctk.CTkFrame(
+            corpo, fg_color=PANEL, border_color=PANEL_BORDER, border_width=1, corner_radius=12, width=280
+        )
         painel.pack(side="left", fill="y", padx=(0, 16))
         painel.pack_propagate(False)
 
         def secao(texto, topo_pad=18):
-            ctk.CTkLabel(painel, text=texto.upper(), font=fonte_secao,
-                         text_color=LG_RED_HOVER).pack(anchor="w", padx=18, pady=(topo_pad, 8))
+            ctk.CTkLabel(painel, text=texto.upper(), font=fonte_secao, text_color=LG_RED_HOVER).pack(
+                anchor="w", padx=18, pady=(topo_pad, 8)
+            )
 
         secao("Fluxo")
         for nome in FLUXOS:
-            ctk.CTkRadioButton(painel, text=nome, value=nome, variable=self.var_fluxo,
-                               font=fonte_texto, text_color=WHITE, fg_color=LG_RED,
-                               hover_color=LG_RED_HOVER, border_color=GRAY
-                               ).pack(anchor="w", padx=18, pady=4)
+            ctk.CTkRadioButton(
+                painel,
+                text=nome,
+                value=nome,
+                variable=self.var_fluxo,
+                font=fonte_texto,
+                text_color=WHITE,
+                fg_color=LG_RED,
+                hover_color=LG_RED_HOVER,
+                border_color=GRAY,
+            ).pack(anchor="w", padx=18, pady=4)
 
         secao("Navegador")
-        ctk.CTkSwitch(painel, text="Modo headless", variable=self.var_headless,
-                      font=fonte_texto, text_color=WHITE, progress_color=LG_RED,
-                      button_color=WHITE, button_hover_color="#DDDDDD"
-                      ).pack(anchor="w", padx=18, pady=4)
-        ctk.CTkLabel(painel, text="Desligado: o Chrome abre visível\npara acompanhar a automação.",
-                     font=fonte_menor, text_color=GRAY, justify="left"
-                     ).pack(anchor="w", padx=18, pady=(0, 6))
-        ctk.CTkSwitch(painel, text="Ocultar credenciais nos logs", variable=self.var_mascarar,
-                      font=fonte_texto, text_color=WHITE, progress_color=LG_RED,
-                      button_color=WHITE, button_hover_color="#DDDDDD"
-                      ).pack(anchor="w", padx=18, pady=4)
+        ctk.CTkSwitch(
+            painel,
+            text="Modo headless",
+            variable=self.var_headless,
+            font=fonte_texto,
+            text_color=WHITE,
+            progress_color=LG_RED,
+            button_color=WHITE,
+            button_hover_color="#DDDDDD",
+        ).pack(anchor="w", padx=18, pady=4)
+        ctk.CTkLabel(
+            painel,
+            text="Desligado: o Chrome abre visível\npara acompanhar a automação.",
+            font=fonte_menor,
+            text_color=GRAY,
+            justify="left",
+        ).pack(anchor="w", padx=18, pady=(0, 6))
+        ctk.CTkSwitch(
+            painel,
+            text="Ocultar credenciais nos logs",
+            variable=self.var_mascarar,
+            font=fonte_texto,
+            text_color=WHITE,
+            progress_color=LG_RED,
+            button_color=WHITE,
+            button_hover_color="#DDDDDD",
+        ).pack(anchor="w", padx=18, pady=4)
 
-        self.btn_executar = ctk.CTkButton(painel, text="▶   Executar", height=44, corner_radius=8,
-                                          font=ctk.CTkFont("Segoe UI", 15, "bold"),
-                                          fg_color=LG_RED, hover_color=LG_RED_HOVER,
-                                          text_color=WHITE, text_color_disabled="#C9A0AE",
-                                          command=self._executar)
+        self.btn_executar = ctk.CTkButton(
+            painel,
+            text="▶   Executar",
+            height=44,
+            corner_radius=8,
+            font=ctk.CTkFont("Segoe UI", 15, "bold"),
+            fg_color=LG_RED,
+            hover_color=LG_RED_HOVER,
+            text_color=WHITE,
+            text_color_disabled="#C9A0AE",
+            command=self._executar,
+        )
         self.btn_executar.pack(fill="x", padx=18, pady=(26, 8))
-        self.btn_parar = ctk.CTkButton(painel, text="■   Interromper", height=38, corner_radius=8,
-                                       font=fonte_texto, fg_color="transparent",
-                                       border_color="#444444", border_width=1, hover_color="#262626",
-                                       text_color=WHITE, text_color_disabled="#555555",
-                                       state="disabled", command=self._parar)
+        self.btn_parar = ctk.CTkButton(
+            painel,
+            text="■   Interromper",
+            height=38,
+            corner_radius=8,
+            font=fonte_texto,
+            fg_color="transparent",
+            border_color="#444444",
+            border_width=1,
+            hover_color="#262626",
+            text_color=WHITE,
+            text_color_disabled="#555555",
+            state="disabled",
+            command=self._parar,
+        )
         self.btn_parar.pack(fill="x", padx=18)
 
         secao("Status", topo_pad=26)
-        self.lbl_status = ctk.CTkLabel(painel, text="●  Aguardando", font=fonte_secao,
-                                       text_color=GRAY, anchor="w")
+        self.lbl_status = ctk.CTkLabel(painel, text="●  Aguardando", font=fonte_secao, text_color=GRAY, anchor="w")
         self.lbl_status.pack(anchor="w", fill="x", padx=18)
         self.lbl_tempo = ctk.CTkLabel(painel, text="Tempo: --", font=fonte_menor, text_color=GRAY)
         self.lbl_tempo.pack(anchor="w", padx=18)
 
         # Área de logs (direita)
-        area = ctk.CTkFrame(corpo, fg_color=PANEL, border_color=PANEL_BORDER,
-                            border_width=1, corner_radius=12)
+        area = ctk.CTkFrame(corpo, fg_color=PANEL, border_color=PANEL_BORDER, border_width=1, corner_radius=12)
         area.pack(side="left", fill="both", expand=True)
 
         barra = ctk.CTkFrame(area, fg_color="transparent")
         barra.pack(fill="x", padx=16, pady=(14, 8))
-        ctk.CTkLabel(barra, text="LOGS DE EXECUÇÃO", font=fonte_secao,
-                     text_color=LG_RED_HOVER).pack(side="left")
+        ctk.CTkLabel(barra, text="LOGS DE EXECUÇÃO", font=fonte_secao, text_color=LG_RED_HOVER).pack(side="left")
         for texto, cmd in (("Salvar", self._salvar_logs), ("Limpar", self._limpar_logs)):
-            ctk.CTkButton(barra, text=texto, width=80, height=30, corner_radius=6,
-                          font=fonte_menor, fg_color="#262626", hover_color="#333333",
-                          text_color=WHITE, command=cmd).pack(side="right", padx=(6, 0))
+            ctk.CTkButton(
+                barra,
+                text=texto,
+                width=80,
+                height=30,
+                corner_radius=6,
+                font=fonte_menor,
+                fg_color="#262626",
+                hover_color="#333333",
+                text_color=WHITE,
+                command=cmd,
+            ).pack(side="right", padx=(6, 0))
 
-        self.txt_log = ctk.CTkTextbox(area, fg_color=BLACK, text_color=CORES_LOG["info"],
-                                      font=ctk.CTkFont("Cascadia Mono", 12), wrap="word",
-                                      corner_radius=8, border_width=0,
-                                      scrollbar_button_color=LG_RED_DARK,
-                                      scrollbar_button_hover_color=LG_RED)
+        self.txt_log = ctk.CTkTextbox(
+            area,
+            fg_color=BLACK,
+            text_color=CORES_LOG["info"],
+            font=ctk.CTkFont("Cascadia Mono", 12),
+            wrap="word",
+            corner_radius=8,
+            border_width=0,
+            scrollbar_button_color=LG_RED_DARK,
+            scrollbar_button_hover_color=LG_RED,
+        )
         self.txt_log.pack(fill="both", expand=True, padx=16, pady=(0, 16))
         self.txt_log.configure(state="disabled")
 
@@ -185,11 +241,11 @@ class RPAApp(ctk.CTk):
         headless = self.var_headless.get()
 
         env = os.environ.copy()
-        env.update(HEADLESS="true" if headless else "false",
-                   PYTHONUNBUFFERED="1", PYTHONIOENCODING="utf-8")
+        env.update(HEADLESS="true" if headless else "false", PYTHONUNBUFFERED="1", PYTHONIOENCODING="utf-8")
 
-        self._log(f"[{datetime.now():%H:%M:%S}] Iniciando '{fluxo}' "
-                  f"(headless={'sim' if headless else 'não'})", "system")
+        self._log(
+            f"[{datetime.now():%H:%M:%S}] Iniciando '{fluxo}' " f"(headless={'sim' if headless else 'não'})", "system"
+        )
 
         try:
             self.processo = subprocess.Popen(
@@ -226,8 +282,11 @@ class RPAApp(ctk.CTk):
         self._log("Interrompendo execução...", "warning")
         if os.name == "nt":
             # Encerra também os processos filhos (Chrome / driver do Playwright)
-            subprocess.run(["taskkill", "/T", "/F", "/PID", str(self.processo.pid)],
-                           capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            subprocess.run(
+                ["taskkill", "/T", "/F", "/PID", str(self.processo.pid)],
+                capture_output=True,
+                creationflags=subprocess.CREATE_NO_WINDOW,
+            )
         else:
             self.processo.terminate()
 
