@@ -4,7 +4,7 @@ Execução do fluxo completo de automação LMS:
 2. Filtro e extração do relatório consolidado de contratos (relatorio_contratos.xlsx).
 3. Extração detalhada de contratos filtrados por departamento
    (contract_review_management.xlsx).
-4. Consolidação da base Ideal Raw e envio para a API do monitor (quando API_URL estiver definida).
+Cada etapa, os logs e o resultado são registrados na API do monitor (quando API_URL estiver definida).
 
 Variáveis de ambiente:
     API_URL           URL da API do monitor (ex.: http://api:8000/api). Sem ela, o robô roda sem reportar.
@@ -89,7 +89,6 @@ def main() -> int:
         _banner("PROCESSO CONCLUÍDO COM SUCESSO!")
         print(f"  Relatório consolidado : {resultado.caminho_relatorio}")
         print(f"  Contract Review Mgmt  : {resultado.caminho_detalhes}")
-        print(f"  Contratos consolidados: {resultado.registros}")
         print("=" * 55 + "\n")
         return 0
 

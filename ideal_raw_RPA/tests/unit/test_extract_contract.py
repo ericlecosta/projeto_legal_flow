@@ -1,6 +1,5 @@
 import pandas as pd
 
-from src.consolidation.ideal_raw import CAMPOS_DATA, CAMPOS_FLAG, CAMPOS_TEXTO
 from src.extract_contract import COLUNAS_FINAIS, filtrar_contratos, parse_progress_state
 
 
@@ -41,8 +40,3 @@ def test_colunas_finais_sem_repeticao():
 
 def test_colunas_finais_comecam_pelas_colunas_do_relatorio():
     assert COLUNAS_FINAIS[:2] == ["Contract Number", "Department of the person in charge"]
-
-
-def test_toda_coluna_consolidada_existe_na_extracao():
-    esperadas = set(CAMPOS_TEXTO) | set(CAMPOS_DATA) | set(CAMPOS_FLAG) | {"Contract Period", "Contract Amount"}
-    assert esperadas <= set(COLUNAS_FINAIS)

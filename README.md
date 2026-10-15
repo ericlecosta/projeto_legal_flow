@@ -17,11 +17,10 @@ hands-on-equipe1-legal/
 │   │   ├── auth/                # OTP (autoatendimento + captcha) e login SSO no LMS
 │   │   ├── extraction/          # Download do relatório consolidado de contratos
 │   │   ├── extract_contract/    # Extração detalhada de cada contrato (timeline e datas)
-│   │   ├── consolidation/       # Consolidação da base Ideal Raw (datas, período, valor, flags)
 │   │   ├── reporting/           # Cliente da API do monitor + handler que envia os logs
 │   │   └── pipeline.py          # Fluxo completo em etapas, reportado ao monitor
 │   ├── tests/                   # pytest: unit/ e integration/
-│   ├── main.py                  # Execução completa (login → relatório → contratos → base)
+│   ├── main.py                  # Execução completa (login → relatório → extração detalhada)
 │   ├── obter_otp.py             # Script CLI para gerar/testar o OTP
 │   ├── login.py                 # Script CLI para validar o login completo
 │   ├── requirements.txt         # Dependências do RPA (requirements-dev.txt: pytest e black)
@@ -103,11 +102,11 @@ LMS_CONTRACT_REVIEW_MANAGEMENT="https://lms.lge.com/#/app/contract/search"
   python ideal_raw_RPA/login.py
   ```
 
-- **Para rodar o fluxo completo** (login, relatório, extração detalhada e envio da base Ideal Raw para a API):
+- **Para rodar o fluxo completo** (login, relatório e extração detalhada, registrados no monitor):
   ```powershell
   python ideal_raw_RPA/main.py
   ```
-  Sem `API_URL` no `.env`, o robô gera as planilhas em `downloads/` e não registra nada no monitor.
+  As planilhas ficam em `downloads/`. Sem `API_URL` no `.env`, o robô não registra nada no monitor.
 
 ---
 
@@ -211,14 +210,15 @@ Para trabalhar no front sem a API, mude `useMocks` para `true` nesse arquivo.
 
 ### Robô real gravando no banco (`RPA_MODE=real`)
 
-O robô registra cada execução (etapas, logs e resultado) e grava os contratos consolidados pelas rotas
-`/api/rpa/`, protegidas pelo cabeçalho `X-RPA-Token`.
+O robô registra cada execução (etapas, logs e resultado) pelas rotas `/api/rpa/`, protegidas pelo cabeçalho
+`X-RPA-Token`. A rota de contratos (`PUT /api/rpa/contracts/`) e a tela **Contratos** já estão prontas, mas só recebem
+dados quando a consolidação da base Ideal Raw for ligada ao robô (em desenvolvimento por outra frente).
 
 1. No `.env` da raiz, defina `RPA_MODE=real` e um `RPA_API_TOKEN` longo
    (`python -c "import secrets; print(secrets.token_urlsafe(32))"`).
 2. Suba a API, o banco e o front: `docker compose up --build -d`.
 3. Rode o robô: `docker compose run --rm rpa` (o padrão é `python main.py`, com `API_URL=http://api:8000/api`).
-4. Acompanhe em **Execuções** e veja a base em **Contratos** (`http://localhost:8080/contratos`).
+4. Acompanhe a execução em **Execuções** (`http://localhost:8080/execucoes`).
 
 No modo real não há seed nem agenda fictícia, e o botão **Executar Fluxo Agora** responde que o disparo ainda é feito
 fora do painel. As planilhas geradas ficam em `ideal_raw_RPA/downloads/`.
@@ -232,7 +232,7 @@ fora do painel. As planilhas geradas ficam em `ideal_raw_RPA/downloads/`.
 | `PATCH /api/rpa/executions/{id}/steps/{key}/` | robô | Atualiza uma etapa |
 | `POST /api/rpa/executions/{id}/logs/` | robô | Envia logs em lote |
 | `POST /api/rpa/executions/{id}/finish/` | robô | Finaliza (sucesso/falha, registros, erro) |
-| `PUT /api/rpa/contracts/` | robô | Grava a base Ideal Raw (upsert pelo número do contrato) |
+| `PUT /api/rpa/contracts/` | robô (após a consolidação) | Grava a base Ideal Raw (upsert pelo número do contrato) |
 | `GET /api/contracts/` · `GET /api/contracts/summary/` | front | Lista, busca e resumo por status |
 
 ---
@@ -245,9 +245,9 @@ fora do painel. As planilhas geradas ficam em `ideal_raw_RPA/downloads/`.
 | API | pytest + black (SQLite, sem Postgres) | `cd backend && pip install -r requirements-dev.txt && black --check . && pytest` |
 | Front | Jest + Babel (TypeScript) | `cd frontend && npm ci && npm run typecheck:test && npm test` |
 
-- **Unitários** (`tests/unit/`, `*.spec.ts`): consolidação da base, cliente da API, fluxo em etapas, repositórios,
+- **Unitários** (`tests/unit/`, `*.spec.ts`): cliente da API, fluxo em etapas, extração (filtro e status), repositórios,
   token, formatação e mocks do front.
-- **Integração** (`tests/integration/`, specs de serviço e página): o fluxo do robô com planilha real e HTTP de verdade,
+- **Integração** (`tests/integration/`, specs de serviço e página): o fluxo do robô com HTTP de verdade,
   o robô falando com a API pelo `TestClient`, a API completa com banco, e a tela de Contratos com o `HttpClient`.
 - `pytest -m integration` roda só os de integração. O black usa `line-length = 120` (há um `pyproject.toml` em cada pasta e na raiz).
 

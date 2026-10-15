@@ -27,14 +27,14 @@ services:
       - API_URL=http://api:8000/api
       - RPA_API_TOKEN=${RPA_API_TOKEN:-}
     volumes:
-      # Planilhas baixadas e consolidadas ficam disponíveis no host
+      # Planilhas baixadas e extraídas ficam disponíveis no host
       - ./ideal_raw_RPA/downloads:/app/downloads
     depends_on:
       api:
         condition: service_healthy
     networks:
       - lms_network
-    # Fluxo completo: login, relatório, extração detalhada e envio para a base.
+    # Fluxo completo: login, relatório e extração detalhada, registrados no monitor.
     # Pode ser sobrescrito para executar 'python login.py' ou 'python obter_otp.py'.
     command: ["python", "main.py"]
 

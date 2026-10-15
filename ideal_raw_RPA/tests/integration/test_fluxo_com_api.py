@@ -1,7 +1,6 @@
 """
-Integração do robô sem o LMS: o fluxo completo grava uma planilha real (no formato do
-contract_review_management.xlsx), lê de volta, consolida e conversa por HTTP de verdade com uma
-API local que imita o monitor.
+Integração do robô sem o LMS: o fluxo completo conversa por HTTP de verdade com uma API local
+que imita o monitor, e os logs dos módulos do robô chegam à API pelo ApiLogHandler.
 """
 
 import json
@@ -9,10 +8,8 @@ import logging
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-import pandas as pd
 import pytest
 
-from src.extract_contract import COLUNAS_FINAIS
 from src.pipeline import ETAPAS, Servicos, executar_fluxo
 from src.reporting import ApiLogHandler, MonitorClient
 
@@ -32,10 +29,7 @@ class ApiFalsa(BaseHTTPRequestHandler):
             self.send_response(401)
             self.end_headers()
             return
-        resposta = {"id": 42} if self.path == "/api/rpa/executions/" else {}
-        if self.path == "/api/rpa/contracts/":
-            resposta = {"received": len(corpo["contracts"]), "created": len(corpo["contracts"]), "updated": 0}
-        dados = json.dumps(resposta).encode()
+        dados = json.dumps({"id": 42} if self.path == "/api/rpa/executions/" else {}).encode()
         self.send_response(201 if self.command == "POST" else 200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(dados)))
@@ -58,29 +52,16 @@ def api():
     servidor.shutdown()
 
 
-def escrever_planilha(caminho):
-    linhas = []
-    for numero, estado in [("C2026000001", "Legal Review in Progress"), ("C2026000002", "Effective Contract")]:
-        linha = {coluna: "" for coluna in COLUNAS_FINAIS}
-        linha.update(
-            {
-                "Contract Number": numero,
-                "Management Number": numero,
-                "Department of the person in charge": "LGESP GA Support Part - MAO",
-                "Counterparty": "ACME LTDA",
-                "Progress State": estado,
-                "Contract Period": "2026-03-24 ~ 2027-03-23",
-                "I requested a review of the contract.": "2026-04-17",
-                "Contract Amount": "BRL 9.240.61",
-                "Review Completed Flag": True,
-            }
-        )
-        linhas.append(linha)
-    pd.DataFrame(linhas, columns=COLUNAS_FINAIS).to_excel(caminho, index=False)
-    return str(caminho)
+def servicos(extrair_detalhes=None):
+    return Servicos(
+        login=lambda: object(),
+        extrair_relatorio=lambda page: "relatorio_contratos.xlsx",
+        extrair_detalhes=extrair_detalhes or (lambda page, caminho: "contract_review_management.xlsx"),
+        fechar=lambda page: None,
+    )
 
 
-def test_fluxo_completo_registra_execucao_e_contratos_na_api(api, tmp_path):
+def test_fluxo_completo_registra_etapas_e_logs_na_api(api):
     url, requisicoes = api
     cliente = MonitorClient(url, TOKEN)
     handler = ApiLogHandler(cliente)
@@ -90,23 +71,14 @@ def test_fluxo_completo_registra_execucao_e_contratos_na_api(api, tmp_path):
 
     def extrair_detalhes(page, caminho_relatorio):
         logging.getLogger("rpa_lms.extract_contract").info("Processando 2 contratos")
-        return escrever_planilha(tmp_path / "contract_review_management.xlsx")
-
-    servicos = Servicos(
-        login=lambda: object(),
-        extrair_relatorio=lambda page: str(tmp_path / "relatorio_contratos.xlsx"),
-        extrair_detalhes=extrair_detalhes,
-        fechar=lambda page: None,
-    )
+        return "contract_review_management.xlsx"
 
     try:
-        resultado = executar_fluxo(servicos, cliente, ao_fim_da_etapa=handler.flush)
+        resultado = executar_fluxo(servicos(extrair_detalhes), cliente, ao_fim_da_etapa=handler.flush)
     finally:
         logger_rpa.removeHandler(handler)
 
     assert resultado.sucesso
-    assert resultado.registros == 2
-    assert resultado.envio == {"received": 2, "created": 2, "updated": 0}
     assert all(token == TOKEN for *_, token in requisicoes)
 
     caminhos = [(metodo, caminho) for metodo, caminho, *_ in requisicoes]
@@ -114,38 +86,24 @@ def test_fluxo_completo_registra_execucao_e_contratos_na_api(api, tmp_path):
     assert caminhos[-1] == ("POST", "/api/rpa/executions/42/finish/")
     for key, _ in ETAPAS:
         assert ("PATCH", f"/api/rpa/executions/42/steps/{key}/") in caminhos
-
-    contratos = next(corpo for metodo, caminho, corpo, _ in requisicoes if caminho == "/api/rpa/contracts/")
-    assert contratos["executionId"] == 42
-    primeiro = contratos["contracts"][0]
-    assert primeiro["contractNumber"] == "C2026000001"
-    assert primeiro["reviewRequestedAt"] == "2026-04-17"
-    assert (primeiro["currency"], primeiro["amount"]) == ("BRL", 9240.61)
-    assert primeiro["flags"]["reviewCompleted"] is True
+    assert ("PUT", "/api/rpa/contracts/") not in caminhos
 
     mensagens = [
         log["message"] for _, caminho, corpo, _ in requisicoes if caminho.endswith("/logs/") for log in corpo["logs"]
     ]
     assert "Processando 2 contratos" in mensagens
-    assert any("2 novo(s)" in m for m in mensagens)
+    assert "Fluxo concluído com sucesso." in mensagens
 
     fim = requisicoes[-1][2]
-    assert fim == {"status": "success", "records": 2, "errorTitle": None, "errorMessage": None}
+    assert fim == {"status": "success", "records": None, "errorTitle": None, "errorMessage": None}
 
 
-def test_token_errado_nao_impede_o_robo_de_terminar(api, tmp_path):
+def test_token_errado_nao_impede_o_robo_de_terminar(api):
     url, requisicoes = api
     cliente = MonitorClient(url, "token-errado")
-    servicos = Servicos(
-        login=lambda: object(),
-        extrair_relatorio=lambda page: "relatorio.xlsx",
-        extrair_detalhes=lambda page, caminho: escrever_planilha(tmp_path / "detalhes.xlsx"),
-        fechar=lambda page: None,
-    )
 
-    resultado = executar_fluxo(servicos, cliente)
+    resultado = executar_fluxo(servicos(), cliente)
 
-    # A API recusou o início, então o envio também é recusado: o robô termina com falha no envio, sem exceção.
-    assert resultado.status == "failed"
-    assert resultado.erro_titulo == "Falha ao enviar os contratos para a base"
-    assert [caminho for _, caminho, *_ in requisicoes] == ["/api/rpa/executions/", "/api/rpa/contracts/"]
+    # A API recusou a abertura da execução: o robô segue sem reportar e termina normalmente.
+    assert resultado.sucesso
+    assert [caminho for _, caminho, *_ in requisicoes] == ["/api/rpa/executions/"]
