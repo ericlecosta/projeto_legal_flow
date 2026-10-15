@@ -11,9 +11,10 @@ module.exports = (api) => {
       ['@babel/preset-env', { targets: { node: 'current' } }],
       ['@babel/preset-typescript', { allowDeclareFields: true }],
     ],
+    // A ordem importa: o plugin de teste precisa ver os decorators antes de eles serem transformados.
     plugins: [
-      ['@babel/plugin-proposal-decorators', { version: 'legacy' }],
       ...(isTest ? ['./jest/inline-angular-resources.js'] : []),
+      ['@babel/plugin-proposal-decorators', { version: 'legacy' }],
     ],
   };
 };

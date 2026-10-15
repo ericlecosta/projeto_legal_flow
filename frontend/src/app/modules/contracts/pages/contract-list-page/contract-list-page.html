@@ -109,13 +109,13 @@
     <table class="w-full border-collapse text-left">
       <thead>
         <tr class="border-b border-border-soft bg-surface">
-          <th scope="col" class="eyebrow px-6 py-4 text-fg-subtle!">Contrato</th>
-          <th scope="col" class="eyebrow px-6 py-4 text-fg-subtle!">Contraparte</th>
-          <th scope="col" class="eyebrow px-6 py-4 text-fg-subtle!">Status</th>
-          <th scope="col" class="eyebrow px-6 py-4 text-fg-subtle!">Revisor</th>
-          <th scope="col" class="eyebrow px-6 py-4 text-fg-subtle!">Solicitado em</th>
-          <th scope="col" class="eyebrow px-6 py-4 text-fg-subtle!">Vigência</th>
-          <th scope="col" class="eyebrow px-6 py-4 text-right text-fg-subtle!">Valor</th>
+          <th scope="col" class="eyebrow px-4 py-4 text-fg-subtle!">Contrato</th>
+          <th scope="col" class="eyebrow px-4 py-4 text-fg-subtle!">Contraparte</th>
+          <th scope="col" class="eyebrow px-4 py-4 text-fg-subtle!">Status</th>
+          <th scope="col" class="eyebrow px-4 py-4 text-fg-subtle!">Revisor</th>
+          <th scope="col" class="eyebrow px-4 py-4 text-fg-subtle!">Solicitado em</th>
+          <th scope="col" class="eyebrow px-4 py-4 text-fg-subtle!">Vigência</th>
+          <th scope="col" class="eyebrow px-4 py-4 text-right text-fg-subtle!">Valor</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-border-soft">
@@ -123,7 +123,7 @@
           @case ('loading') {
             @for (i of [1, 2, 3, 4, 5]; track i) {
               <tr>
-                <td colspan="7" class="px-6 py-4">
+                <td colspan="7" class="px-4 py-4">
                   <div class="h-5 animate-pulse rounded-sm bg-surface"></div>
                 </td>
               </tr>
@@ -131,7 +131,7 @@
           }
           @case ('error') {
             <tr>
-              <td colspan="7" class="px-6 py-12 text-center text-sm text-danger" role="alert">
+              <td colspan="7" class="px-4 py-12 text-center text-sm text-danger" role="alert">
                 Não foi possível carregar os contratos.
               </td>
             </tr>
@@ -142,7 +142,7 @@
                 class="transition-colors duration-200 hover:bg-surface-elevated"
                 data-testid="contract-row"
               >
-                <td class="max-w-xs px-6 py-4">
+                <td class="max-w-[16rem] px-4 py-4">
                   <p class="truncate text-sm font-semibold" [title]="contract.contractName ?? ''">
                     {{ contract.contractName ?? '-' }}
                   </p>
@@ -153,10 +153,10 @@
                     }
                   </p>
                 </td>
-                <td class="max-w-[14rem] truncate px-6 py-4 text-sm text-fg-muted">
+                <td class="max-w-[12rem] truncate px-4 py-4 text-sm text-fg-muted">
                   {{ contract.counterparty ?? '-' }}
                 </td>
-                <td class="px-6 py-4">
+                <td class="px-4 py-4">
                   <span
                     class="inline-flex w-max items-center rounded-md border px-2.5 py-1 text-xs font-semibold"
                     [class]="tone(contract.progressState)"
@@ -165,22 +165,22 @@
                     {{ label(contract.progressState) }}
                   </span>
                 </td>
-                <td class="px-6 py-4 text-sm whitespace-nowrap text-fg-muted">
+                <td class="px-4 py-4 text-sm whitespace-nowrap text-fg-muted">
                   {{ contract.legalReviewer ?? '-' }}
                 </td>
-                <td class="px-6 py-4 font-mono text-sm whitespace-nowrap text-fg-muted">
+                <td class="px-4 py-4 font-mono text-sm whitespace-nowrap text-fg-muted">
                   {{ date(contract.reviewRequestedAt) }}
                 </td>
-                <td class="px-6 py-4 font-mono text-sm whitespace-nowrap text-fg-muted">
+                <td class="px-4 py-4 font-mono text-sm whitespace-nowrap text-fg-muted">
                   {{ period(contract.periodStart, contract.periodEnd) }}
                 </td>
-                <td class="px-6 py-4 text-right font-mono text-sm whitespace-nowrap">
+                <td class="px-4 py-4 text-right font-mono text-sm whitespace-nowrap">
                   {{ amount(contract.amount, contract.currency) }}
                 </td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="7" class="px-6 py-12 text-center text-sm text-fg-subtle">
+                <td colspan="7" class="px-4 py-12 text-center text-sm text-fg-subtle">
                   @if (hasActiveFilters()) {
                     Nenhum contrato encontrado para os filtros selecionados.
                   } @else {
