@@ -94,7 +94,8 @@ class SimulationManager:
                     self._add_log(execution_id, log.level, log.message)
                 self._sleep_until(step_start + step.duration / speed, stop_event)
                 self._update_step(
-                    execution_id, step.key,
+                    execution_id,
+                    step.key,
                     status="failed" if step.failed else "success",
                     duration_seconds=round(time.monotonic() - step_start, 1),
                 )
@@ -130,9 +131,11 @@ class SimulationManager:
     @staticmethod
     def _add_log(execution_id: int, level: str, message: str) -> None:
         with SessionLocal() as db:
-            db.add(ExecutionLog(
-                execution_id=execution_id, timestamp=datetime.now().astimezone(), level=level, message=message
-            ))
+            db.add(
+                ExecutionLog(
+                    execution_id=execution_id, timestamp=datetime.now().astimezone(), level=level, message=message
+                )
+            )
             db.commit()
 
     @staticmethod
@@ -153,10 +156,7 @@ class SimulationManager:
 
     @staticmethod
     def _finish_stopped(
-        execution_id: int,
-        current_key: str | None,
-        started: float,
-        reason: str = "Execução interrompida pelo usuário.",
+        execution_id: int, current_key: str | None, started: float, reason: str = "Execução interrompida pelo usuário."
     ) -> None:
         with SessionLocal() as db:
             execution = db.get(Execution, execution_id)

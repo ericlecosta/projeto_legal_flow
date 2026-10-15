@@ -38,8 +38,11 @@ def materialize(plan: RunPlan, started_at: datetime, trigger: str) -> Execution:
             continue
         execution.steps.append(
             ExecutionStep(
-                position=position, key=key, label=label,
-                status="failed" if step.failed else "success", duration_seconds=step.duration,
+                position=position,
+                key=key,
+                label=label,
+                status="failed" if step.failed else "success",
+                duration_seconds=step.duration,
             )
         )
         for log in step.logs:

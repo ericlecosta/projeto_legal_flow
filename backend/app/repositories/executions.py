@@ -25,11 +25,7 @@ from app.schemas import (
 )
 from app.simulator.schedule import slot_name, upcoming_slots
 
-PERIOD_LABELS: dict[str, str] = {
-    "7d": "Últimos 7 dias",
-    "30d": "Últimos 30 dias",
-    "all": "Todo o período",
-}
+PERIOD_LABELS: dict[str, str] = {"7d": "Últimos 7 dias", "30d": "Últimos 30 dias", "all": "Todo o período"}
 
 STATUS_MESSAGES: dict[OperationalStatus, str] = {
     "green": "O RPA está rodando conforme o esperado.",
@@ -75,9 +71,7 @@ def list_executions(
         query = query.where(Execution.flow == flow)
 
     count = db.scalar(select(func.count()).select_from(query.subquery()))
-    rows = db.scalars(
-        query.order_by(Execution.started_at.desc()).offset((page - 1) * page_size).limit(page_size)
-    ).all()
+    rows = db.scalars(query.order_by(Execution.started_at.desc()).offset((page - 1) * page_size).limit(page_size)).all()
     return Page[ExecutionSchema](count=count, results=[_to_schema(row) for row in rows])
 
 
@@ -113,9 +107,7 @@ def get_execution(db: Session, execution_id: int) -> ExecutionDetail | None:
 def get_overview(db: Session) -> Overview:
     target = get_settings().running_rate_target
     since = _period_start("7d")
-    finished = db.scalars(
-        select(Execution).where(Execution.started_at >= since, Execution.status != "running")
-    ).all()
+    finished = db.scalars(select(Execution).where(Execution.started_at >= since, Execution.status != "running")).all()
 
     failed = [e for e in finished if e.status == "failed"]
     succeeded = len(finished) - len(failed)
@@ -146,7 +138,7 @@ def get_overview(db: Session) -> Overview:
 
     return Overview(
         operational_status=status,
-        status_message=STATUS_MESSAGES[status] if finished else "Nenhuma execução concluída nos últimos 7 dias.",
+        status_message=(STATUS_MESSAGES[status] if finished else "Nenhuma execução concluída nos últimos 7 dias."),
         updated_at=datetime.now().astimezone(),
         period_label=PERIOD_LABELS["7d"],
         running_rate=round(running_rate, 1),

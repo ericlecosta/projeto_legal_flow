@@ -154,10 +154,7 @@ def _step_logs(rng: random.Random, key: StepKey, duration: float, records: int |
 
 
 def build_plan(
-    rng: random.Random,
-    flow: ExecutionFlow = "login_capture",
-    failure_rate: float = 0.12,
-    atypical_rate: float = 0.06,
+    rng: random.Random, flow: ExecutionFlow = "login_capture", failure_rate: float = 0.12, atypical_rate: float = 0.06
 ) -> RunPlan:
     all_steps = STEPS[:2] if flow == "otp_only" else STEPS
     keys = [key for key, _ in all_steps]
