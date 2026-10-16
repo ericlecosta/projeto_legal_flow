@@ -12,7 +12,9 @@ Variáveis de ambiente:
     RPA_TRIGGER       "manual" (padrão) ou "scheduled".
     LMS_SUBSIDIARY_CODE, LMS_PERIODO, LMS_FILTRO_DEPARTAMENTO, HEADLESS
     LMS_TIMEOUT_MS    Espera máxima (ms) de cada tela na extração dos contratos (padrão: 90000).
+    LMS_TIMEOUT_ABERTURA_MS  Espera máxima (ms) para o LMS abrir do zero numa aba nova (padrão: 300000).
     LMS_TENTATIVAS    Tentativas por contrato antes de deixá-lo sem dados (padrão: 3).
+    LMS_PARALELO      Contratos coletados ao mesmo tempo, cada um em suas abas (padrão: 3; 1 = um por vez).
 """
 
 import logging
@@ -39,7 +41,9 @@ SUBSIDIARY_CODE = os.getenv("LMS_SUBSIDIARY_CODE", "LGESP")
 PERIODO = os.getenv("LMS_PERIODO", "3")
 FILTRO_DEPARTAMENTO = os.getenv("LMS_FILTRO_DEPARTAMENTO", "mao")
 TIMEOUT_MS = int(os.getenv("LMS_TIMEOUT_MS", "90000"))
+TIMEOUT_ABERTURA_MS = int(os.getenv("LMS_TIMEOUT_ABERTURA_MS", "300000"))
 TENTATIVAS = int(os.getenv("LMS_TENTATIVAS", "3"))
+PARALELO = int(os.getenv("LMS_PARALELO", "3"))
 
 
 def _configurar_logging():
@@ -80,7 +84,9 @@ def main() -> int:
             caminho_relatorio=caminho,
             filtro_departamento=FILTRO_DEPARTAMENTO,
             timeout=TIMEOUT_MS,
+            timeout_abertura=TIMEOUT_ABERTURA_MS,
             tentativas=TENTATIVAS,
+            paralelo=PARALELO,
         ),
         fechar=fechar,
     )
