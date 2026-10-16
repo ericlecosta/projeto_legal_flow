@@ -2,12 +2,14 @@
 
 import argparse
 from copy import copy
+from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 import re
 import tempfile
 
 from openpyxl import load_workbook
+from openpyxl.utils import get_column_letter
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -77,21 +79,58 @@ def status_progress_state(valor):
     return None
 
 
+def somente_data(valor):
+    """Remove o horário e formata datas como DD-MM-AAAA."""
+    if isinstance(valor, datetime):
+        return valor.strftime("%d-%m-%Y")
+    if isinstance(valor, date):
+        return valor.strftime("%d-%m-%Y")
+    if isinstance(valor, str):
+        texto = valor.strip()
+        if not texto:
+            return None
+        try:
+            return datetime.fromisoformat(texto).strftime("%d-%m-%Y")
+        except ValueError:
+            for formato in ("%d/%m/%Y %H:%M:%S", "%d/%m/%Y %H:%M", "%d/%m/%Y"):
+                try:
+                    return datetime.strptime(texto, formato).strftime("%d-%m-%Y")
+                except ValueError:
+                    continue
+    return valor
+
+
 def transformar(campo, valor):
     """Separa categorias, período ISO e valor original (ignora a conversão USD)."""
+    if campo == "Progress State":
+        texto_estado = normalizar(valor)
+        for estado in STATUS_PROGRESS_STATE:
+            chave = normalizar(estado)
+            if texto_estado == chave or (texto_estado.startswith(chave) and not texto_estado[len(chave)].isalnum()):
+                return estado
+        return valor
+    if campo == "Reviewer":
+        texto_reviewer = str(valor or "").strip()
+        gerente = re.search(r"\[Main manager\][ \t]*([^\r\n]*)", texto_reviewer, re.IGNORECASE)
+        nome = gerente[1].strip() if gerente else ""
+        return nome or valor
     if valor is None:
         return None
     texto = str(valor).strip()
     if not texto:
         return None
+    if campo == "The person in charge":
+        return texto.split("(", 1)[0].strip() or valor
     if campo in ("Main Contract Type", "Contract type"):
         partes = [p.strip() for p in texto.splitlines() if p.strip()]
         return partes[0] if campo == "Main Contract Type" else partes[-1]
     if campo in ("Start date", "End date"):
         partes = re.split(r"\s*~\s*", texto)
         if len(partes) != 2:
-            return "Data não identificada"
-        return partes[0 if campo == "Start date" else 1] or None
+            return "DATA INVÁLIDA"
+        return somente_data(partes[0 if campo == "Start date" else 1])
+    if campo in CAMPOS_DATA:
+        return somente_data(valor)
     if campo in ("Contract currency", "Amount"):
         match = re.search(r"([\d,.]+)\s*\[([A-Za-z]{3})\]", texto)
         if not match:
@@ -101,6 +140,21 @@ def transformar(campo, valor):
         # O LMS usa vírgula para milhares e ponto para decimais.
         return float(Decimal(match[1].replace(",", "")))
     return valor
+
+
+def conclusao_contrato(expirado, efetivo):
+    if expirado is True or normalizar(expirado) in {"verdadeiro", "true"}:
+        return "Expirado"
+    if expirado is False or normalizar(expirado) in {"falso", "false"}:
+        if isinstance(efetivo, (date, datetime)):
+            return somente_data(efetivo)
+        if isinstance(efetivo, str):
+            try:
+                datetime.fromisoformat(efetivo.strip())
+            except ValueError:
+                return None
+            return somente_data(efetivo)
+    return None
 
 
 def preencher_base_ideal(origem, modelo, destino):
@@ -122,7 +176,8 @@ def preencher_base_ideal(origem, modelo, destino):
         alias = normalizar("I request a review of the contract")
         if alias in colunas:
             colunas.setdefault(normalizar(MAPEAMENTO["Request Date"]), colunas[alias])
-        faltantes = sorted({v for v in MAPEAMENTO.values() if normalizar(v) not in colunas})
+        faltantes = sorted({v for v in (*MAPEAMENTO.values(), "Effective Contract")
+                            if normalizar(v) not in colunas})
         destinos = {str(c.value).strip(): c.column for c in saida[1] if c.value}
         if faltantes:
             raise ValueError(f"Colunas ausentes na origem: {', '.join(faltantes)}")
@@ -138,6 +193,9 @@ def preencher_base_ideal(origem, modelo, destino):
                 continue
             try:
                 registros.append({campo: None if status == 1 and campo in CAMPOS_DATA
+                                  else conclusao_contrato(linha[colunas[normalizar("Contract Expired")]],
+                                                          linha[colunas[normalizar("Effective Contract")]])
+                                  if campo == "Register the conclusion of contract"
                                   else transformar(campo, linha[colunas[normalizar(coluna)]])
                                   for campo, coluna in MAPEAMENTO.items()})
             except ValueError as exc:
@@ -154,6 +212,15 @@ def preencher_base_ideal(origem, modelo, destino):
                 # Texto da origem nunca deve virar uma fórmula Excel.
                 if isinstance(valor, str):
                     celula.data_type = "s"
+        for coluna in saida.iter_cols():
+            largura = max((len(linha) for celula in coluna if celula.value is not None
+                           for linha in str(celula.value).splitlines()), default=0)
+            saida.column_dimensions[get_column_letter(coluna[0].column)].width = max(15, min(largura + 2, 45))
+            for celula in coluna:
+                alinhamento = copy(celula.alignment)
+                alinhamento.wrap_text = False
+                alinhamento.vertical = "top"
+                celula.alignment = alinhamento
         destino.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(dir=destino.parent, suffix=".xlsx", delete=False) as arquivo:
             temporario = Path(arquivo.name)
