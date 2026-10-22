@@ -195,10 +195,7 @@ _JS_MARCA_ANTIGOS = """(seletor) => {
 # - datas:  //span[contains(normalize-space(.), âncora)]/preceding::span[contains(@class,"Date")][1]
 # - progress: innerText do último span:has-text("Status changed to in")
 # - status: is_visible() do primeiro `seletor:has-text(texto)`
-_JS_COLETA = (
-    "({ tabela, datas, status }) => {"
-    + _JS_VISIVEL
-    + """
+_JS_COLETA_CORPO = """
   const norm = (s) => (s || "").replace(/\\s+/g, " ").trim();
   const antes = (a, b) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
 
@@ -254,7 +251,7 @@ _JS_COLETA = (
   return { tabela: resultadoTabela, datas: resultadoDatas, progress, status: resultadoStatus };
 }
 """
-)
+_JS_COLETA = "({ tabela, datas, status }) => {" + _JS_VISIVEL + _JS_COLETA_CORPO
 
 
 # ---------------------------------------------------------------------------
