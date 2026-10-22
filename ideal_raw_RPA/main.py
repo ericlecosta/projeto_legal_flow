@@ -13,6 +13,7 @@ Variáveis de ambiente:
     LMS_SUBSIDIARY_CODE, LMS_PERIODO, LMS_FILTRO_DEPARTAMENTO, HEADLESS
     LMS_TIMEOUT_MS    Espera máxima (ms) de cada tela na extração dos contratos (padrão: 90000).
     LMS_TENTATIVAS    Tentativas por contrato antes de deixá-lo sem dados (padrão: 3).
+    LMS_SOMENTE_CONTRATOS  Números de contrato separados por vírgula para filtrar antes da coleta.
 """
 
 import logging
@@ -40,6 +41,7 @@ PERIODO = os.getenv("LMS_PERIODO", "3")
 FILTRO_DEPARTAMENTO = os.getenv("LMS_FILTRO_DEPARTAMENTO", "mao")
 TIMEOUT_MS = int(os.getenv("LMS_TIMEOUT_MS", "90000"))
 TENTATIVAS = int(os.getenv("LMS_TENTATIVAS", "3"))
+SOMENTE_CONTRATOS = [c.strip() for c in os.getenv("LMS_SOMENTE_CONTRATOS", "").split(",") if c.strip()]
 
 
 def _configurar_logging():
@@ -81,6 +83,7 @@ def main() -> int:
             filtro_departamento=FILTRO_DEPARTAMENTO,
             timeout=TIMEOUT_MS,
             tentativas=TENTATIVAS,
+            somente_contratos=SOMENTE_CONTRATOS or None,
         ),
         fechar=fechar,
     )
