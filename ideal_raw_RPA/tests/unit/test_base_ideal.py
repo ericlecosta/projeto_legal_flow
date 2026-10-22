@@ -13,8 +13,8 @@ spec.loader.exec_module(modulo)
 def test_transformacoes():
     assert modulo.transformar("Main Contract Type", "Others\nLeasing") == "Others"
     assert modulo.transformar("Contract type", "Others\nLeasing") == "Leasing"
-    assert modulo.transformar("Start date", "2026-10-12\n~\n2027-10-11") == "12-10-2026"
-    assert modulo.transformar("End date", "2026-10-12\n~\n2027-10-11") == "11-10-2027"
+    assert modulo.transformar("Start date", "2026-10-12\n~\n2027-10-11") == "2026-10-12"
+    assert modulo.transformar("End date", "2026-10-12\n~\n2027-10-11") == "2027-10-11"
     assert modulo.transformar("Amount", "32,368.68[BRL] Brazil\n6,438.72 USD") == 32368.68
     assert modulo.transformar("Contract currency", "32,368.68[BRL] Brazil\n6,438.72 USD") == "BRL"
     assert modulo.transformar("Register the conclusion of contract", False) is False

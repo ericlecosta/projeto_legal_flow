@@ -10,6 +10,21 @@ modulo = runpy.run_path(str(Path(__file__).parents[2] / "preencher_base_ideal.py
 
 
 class ProgressStateTest(unittest.TestCase):
+    def test_counterparty(self):
+        transformar = modulo["transformar"]
+        casos = {
+            "ALDO AZEVEDO OLIVEIRA(20261015-024): SEM BRCODE": "ALDO AZEVEDO OLIVEIRA",
+            "EMPRESA LTDA(60.902.939/0001-73)": "EMPRESA LTDA",
+            "LG CNS Co., Ltd.(116-81-19477)": "LG CNS Co., Ltd.",
+            "Empresa (Brasil)(12345678000190): Novo fornecedor": "Empresa (Brasil)",
+            "Empresa (Brasil)": "Empresa (Brasil)",
+            "Nome sem identificador": "Nome sem identificador",
+            None: None,
+            "": None,
+        }
+        for origem, esperado in casos.items():
+            self.assertEqual(transformar("Counterparty", origem), esperado)
+
     def test_pessoa_responsavel(self):
         transformar = modulo["transformar"]
         self.assertEqual(transformar("The person in charge", "MARCELLE CUNHA(LGESP GA Support Part - MAO)"),
@@ -77,7 +92,7 @@ class ProgressStateTest(unittest.TestCase):
                             self.assertIsNone(registro[campo], (registro, campo))
                         else:
                             self.assertIsNotNone(registro[campo], (registro, campo))
-                            self.assertRegex(registro[campo], r"^\d{2}-\d{2}-\d{4}$")
+                            self.assertRegex(registro[campo], r"^\d{4}-\d{2}-\d{2}$")
                     self.assertEqual(registro["Amount"], 100)
                     self.assertEqual(registro["Contract currency"], "BRL")
             finally:
@@ -103,8 +118,8 @@ class ProgressStateTest(unittest.TestCase):
         for expirado in (True, "VERDADEIRO", "true"):
             self.assertEqual(concluir(expirado, data), "Expirado")
         for expirado in (False, "FALSO", "false"):
-            self.assertEqual(concluir(expirado, data), "08-10-2026")
-            self.assertEqual(concluir(expirado, "2026-10-08 13:55:58"), "08-10-2026")
+            self.assertEqual(concluir(expirado, data), "2026-10-08")
+            self.assertEqual(concluir(expirado, "2026-10-08 13:55:58"), "2026-10-08")
             for vazio in (None, "", "sem data", False):
                 self.assertIsNone(concluir(expirado, vazio))
         self.assertIsNone(concluir(None, data))
@@ -116,7 +131,7 @@ class ProgressStateTest(unittest.TestCase):
             for valor in (datetime(2026, 10, 8, 13, 55, 58), date(2026, 10, 8),
                           "2026-10-08 13:55:58", "2026-10-08T13:55:58",
                           "08/10/2026 13:55:58", "2026-10-08"):
-                self.assertEqual(modulo["transformar"](campo, valor), "08-10-2026")
+                self.assertEqual(modulo["transformar"](campo, valor), "2026-10-08")
             self.assertIsNone(modulo["transformar"](campo, None))
         self.assertEqual(modulo["somente_data"]("Expirado"), "Expirado")
 

@@ -80,21 +80,21 @@ def status_progress_state(valor):
 
 
 def somente_data(valor):
-    """Remove o horário e formata datas como DD-MM-AAAA."""
+    """Remove o horário e formata datas como AAAA-MM-DD."""
     if isinstance(valor, datetime):
-        return valor.strftime("%d-%m-%Y")
+        return valor.strftime("%Y-%m-%d")
     if isinstance(valor, date):
-        return valor.strftime("%d-%m-%Y")
+        return valor.strftime("%Y-%m-%d")
     if isinstance(valor, str):
         texto = valor.strip()
         if not texto:
             return None
         try:
-            return datetime.fromisoformat(texto).strftime("%d-%m-%Y")
+            return datetime.fromisoformat(texto).strftime("%Y-%m-%d")
         except ValueError:
             for formato in ("%d/%m/%Y %H:%M:%S", "%d/%m/%Y %H:%M", "%d/%m/%Y"):
                 try:
-                    return datetime.strptime(texto, formato).strftime("%d-%m-%Y")
+                    return datetime.strptime(texto, formato).strftime("%Y-%m-%d")
                 except ValueError:
                     continue
     return valor
@@ -119,6 +119,9 @@ def transformar(campo, valor):
     texto = str(valor).strip()
     if not texto:
         return None
+    if campo == "Counterparty":
+        identificador = re.search(r"\(\s*\d[\d./\s-]*\)\s*(?::.*)?$", texto, re.DOTALL)
+        return texto[:identificador.start()].strip() or valor if identificador else valor
     if campo == "The person in charge":
         return texto.split("(", 1)[0].strip() or valor
     if campo in ("Main Contract Type", "Contract type"):
