@@ -132,6 +132,14 @@ class RpaExecutionCreated(CamelModel):
     id: int
 
 
+class RpaJobClaimed(CamelModel):
+    execution_id: int
+
+
+class RpaJobStatus(CamelModel):
+    stop_requested: bool
+
+
 class RpaStepUpdate(CamelModel):
     status: StepStatus
     duration_seconds: float | None = None

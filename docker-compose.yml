@@ -39,6 +39,38 @@ services:
     command: ["python", "main.py"]
 
   # ===========================================================================
+  # Serviço: Worker do Robô (atende o botão "Executar Fluxo Agora" do painel)
+  # ===========================================================================
+  # Fica de prontidão consultando a fila da API e roda o main.py a cada pedido.
+  # Só recebe pedidos com RPA_MODE=real e o mesmo RPA_API_TOKEN da API.
+  rpa-worker:
+    build:
+      context: ./ideal_raw_RPA
+      dockerfile: Dockerfile
+    container_name: lms_rpa_worker
+    restart: unless-stopped
+    shm_size: '1gb'
+    ipc: host
+    env_file:
+      - path: .env
+        required: false
+      - path: ./ideal_raw_RPA/.env
+        required: false
+    environment:
+      - HEADLESS=true
+      - PYTHONUNBUFFERED=1
+      - API_URL=http://api:8000/api
+      - RPA_API_TOKEN=${RPA_API_TOKEN:-}
+    volumes:
+      - ./ideal_raw_RPA/downloads:/app/downloads
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - lms_network
+    command: ["python", "worker.py"]
+
+  # ===========================================================================
   # Serviço: Banco de Dados (PostgreSQL)
   # ===========================================================================
   db:
@@ -74,10 +106,13 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-lms_legal}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:4200,http://localhost:8080}
-      # "real": só o robô grava execuções e contratos. "simulated": dados fictícios para demonstração.
+      # "real": só o robô grava execuções e contratos (o botão do painel aciona o rpa-worker).
+      # "simulated": dados fictícios para demonstração.
       RPA_MODE: ${RPA_MODE:-simulated}
       # Token que o robô envia em X-RPA-Token. Vazio desativa as rotas /api/rpa/.
       RPA_API_TOKEN: ${RPA_API_TOKEN:-}
+      # Tempo que um pedido do painel espera o rpa-worker antes de falhar
+      RPA_CLAIM_TIMEOUT_SECONDS: ${RPA_CLAIM_TIMEOUT_SECONDS:-60}
       # Simulador do RPA (usado só no modo "simulated")
       SEED_ON_STARTUP: ${SEED_ON_STARTUP:-true}
       SEED_DAYS: ${SEED_DAYS:-30}

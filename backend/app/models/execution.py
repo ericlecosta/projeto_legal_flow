@@ -5,7 +5,7 @@ Modelos ORM das execuções do RPA, espelhando os contratos do front-end
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.session import Base
@@ -59,3 +59,20 @@ class ExecutionLog(Base):
     message: Mapped[str] = mapped_column(Text)
 
     execution: Mapped[Execution] = relationship(back_populates="logs")
+
+
+class RpaJob(Base):
+    """
+    Pedido de execução feito pelo painel no modo real. O worker do robô reivindica o pedido,
+    roda o fluxo gravando na execução ligada a ele e consulta `stop_requested` para saber se deve parar.
+    """
+
+    __tablename__ = "rpa_jobs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    execution_id: Mapped[int] = mapped_column(ForeignKey("executions.id", ondelete="CASCADE"), unique=True, index=True)
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    stop_requested: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    execution: Mapped[Execution] = relationship()

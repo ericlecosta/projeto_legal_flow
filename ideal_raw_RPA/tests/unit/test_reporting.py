@@ -155,3 +155,35 @@ def test_handler_flush_sem_logs_nao_chama_a_api():
     cliente = ClienteLogs()
     ApiLogHandler(cliente).flush()
     assert cliente.lotes == []
+
+
+def test_execucao_aberta_pelo_painel_e_assumida_em_vez_de_criada():
+    session = FakeSession([FakeResponse(200, {"id": 5})])
+    cliente = MonitorClient("http://api/api", "segredo", session=session, execution_id=5)
+    assert cliente.iniciar_execucao("contract_extraction", "manual", [("lms_login", "Login no LMS")]) == 5
+    assert session.chamadas[0]["url"] == "http://api/api/rpa/executions/5/start/"
+
+
+def test_execution_id_vem_do_ambiente(monkeypatch):
+    monkeypatch.setenv("API_URL", "http://api/api")
+    monkeypatch.setenv("RPA_EXECUTION_ID", "12")
+    assert MonitorClient.from_env().execution_id == 12
+    monkeypatch.delenv("RPA_EXECUTION_ID")
+    assert MonitorClient.from_env().execution_id is None
+
+
+def test_reivindicar_execucao_com_e_sem_pedido_na_fila():
+    cliente, session = cliente_com([FakeResponse(200, {"executionId": 3}), FakeResponse(204)])
+    assert cliente.reivindicar_execucao() == 3
+    assert cliente.reivindicar_execucao() is None
+    assert session.chamadas[0]["method"] == "POST"
+    assert session.chamadas[0]["url"] == "http://api/api/rpa/jobs/claim/"
+
+
+def test_parada_solicitada_e_falha_de_rede_conta_como_nao():
+    cliente, session = cliente_com([FakeResponse(200, {"stopRequested": True})])
+    assert cliente.parada_solicitada(3) is True
+    assert session.chamadas[0]["url"] == "http://api/api/rpa/jobs/3/"
+
+    cliente, _ = cliente_com(erro=ConnectionError("fora do ar"))
+    assert cliente.parada_solicitada(3) is False

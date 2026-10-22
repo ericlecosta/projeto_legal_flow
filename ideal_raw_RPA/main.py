@@ -11,6 +11,8 @@ Variáveis de ambiente:
     RPA_API_TOKEN     Token que a API exige para aceitar os dados do robô.
     RPA_TRIGGER       "manual" (padrão) ou "scheduled".
     LMS_SUBSIDIARY_CODE, LMS_PERIODO, LMS_FILTRO_DEPARTAMENTO, HEADLESS
+    LMS_TIMEOUT_MS    Espera máxima (ms) de cada tela na extração dos contratos (padrão: 90000).
+    LMS_TENTATIVAS    Tentativas por contrato antes de deixá-lo sem dados (padrão: 3).
 """
 
 import logging
@@ -36,6 +38,8 @@ from src.reporting import ApiLogHandler, MonitorClient  # noqa: E402
 SUBSIDIARY_CODE = os.getenv("LMS_SUBSIDIARY_CODE", "LGESP")
 PERIODO = os.getenv("LMS_PERIODO", "3")
 FILTRO_DEPARTAMENTO = os.getenv("LMS_FILTRO_DEPARTAMENTO", "mao")
+TIMEOUT_MS = int(os.getenv("LMS_TIMEOUT_MS", "90000"))
+TENTATIVAS = int(os.getenv("LMS_TENTATIVAS", "3"))
 
 
 def _configurar_logging():
@@ -72,7 +76,11 @@ def main() -> int:
             page=page, subsidiary_code=SUBSIDIARY_CODE, periodo=PERIODO
         ),
         extrair_detalhes=lambda page, caminho: extrair_contract_review_management(
-            page=page, caminho_relatorio=caminho, filtro_departamento=FILTRO_DEPARTAMENTO
+            page=page,
+            caminho_relatorio=caminho,
+            filtro_departamento=FILTRO_DEPARTAMENTO,
+            timeout=TIMEOUT_MS,
+            tentativas=TENTATIVAS,
         ),
         fechar=fechar,
     )

@@ -20,10 +20,13 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:4200,http://localhost:8080"
 
     # "simulated": dados fictícios + simulador ao vivo (demonstração).
-    # "real": só o robô grava execuções e contratos; sem seed, sem agenda fictícia e sem disparo pelo painel.
+    # "real": só o robô grava execuções e contratos; sem seed e sem agenda fictícia. O botão do painel
+    # enfileira um pedido que o worker do robô (ideal_raw_RPA/worker.py) executa.
     rpa_mode: Literal["simulated", "real"] = "simulated"
     # Token que o robô envia no cabeçalho X-RPA-Token. Vazio = rotas /api/rpa/ desativadas.
     rpa_api_token: str = ""
+    # Tempo que um pedido feito pelo painel espera o worker do robô antes de falhar
+    rpa_claim_timeout_seconds: int = 60
 
     # Simulador do RPA (usado no modo "simulated")
     seed_on_startup: bool = True  # popula o histórico fictício se o banco estiver vazio
