@@ -255,9 +255,10 @@ _JS_COLETA_CORPO = """
     resultadoStatus[coluna] = el ? visivel(el) : false;
   }
 
+  const ehTextoBizDrop = (el) => norm(el.textContent).toLowerCase() === "biz-drop";
   const coletarBizDropStatus = () =>
     Array.from(document.querySelectorAll('#progress_body_id div[id^="Item_Id_"]')).some(
-      (el) => visivel(el) && norm(el.textContent).toLowerCase().includes("biz-drop")
+      (el) => visivel(el) && (ehTextoBizDrop(el) || Array.from(el.querySelectorAll("*")).some(ehTextoBizDrop))
     );
 
   const coletarRequestDates = () => {
