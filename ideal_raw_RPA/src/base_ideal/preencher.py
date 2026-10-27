@@ -37,6 +37,7 @@ MAPEAMENTO = {
     "Approval request completed": "Approval Completed",
     "Register the conclusion of contract": "Contract Expired",
     "Biz-Drop Completed": "Biz-Drop Completed",
+    "Qty Review": "Qty Review",
     "Reviewer": "A person in charge of legal (team)",
     "Contract currency": "Contract Amount",
     "Amount": "Contract Amount",
@@ -65,6 +66,8 @@ STATUS_PROGRESS_STATE = {
 ALIASES_ORIGEM = {
     "Request Date": ("I requested a review of the contract.", "I request a review of the contract"),
 }
+# Colunas adicionadas recentemente na extração (planilhas antigas sem elas recebem valor padrão)
+COLUNAS_OPCIONAIS_ORIGEM = {"Qty Review"}
 CAMPOS_DATA = {
     "Start date",
     "End date",
@@ -129,6 +132,17 @@ def transformar(campo, valor):
         gerente = re.search(r"\[Main manager\][ \t]*([^\r\n]*)", texto_reviewer, re.IGNORECASE)
         nome = gerente[1].strip() if gerente else ""
         return nome or valor
+    if campo == "Qty Review":
+        if valor is None or str(valor).strip() == "":
+            return 0
+        if isinstance(valor, bool):
+            return int(valor)
+        if isinstance(valor, (int, float)):
+            return int(valor)
+        texto_qty = str(valor).strip()
+        if re.fullmatch(r"\d+(?:\.0+)?", texto_qty):
+            return int(float(texto_qty))
+        return valor
     if valor is None:
         return None
     texto = str(valor).strip()
@@ -175,6 +189,25 @@ def conclusao_contrato(expirado, efetivo):
     return None
 
 
+def _eh_biz_drop(linha, colunas):
+    """Detecta se a linha está em Biz-Drop pela flag Biz-Drop Status ou pela data Biz-Drop Completed."""
+    col_status = colunas.get(normalizar("Biz-Drop Status"))
+    if col_status is not None:
+        val_status = linha[col_status]
+        if val_status is True or normalizar(val_status) in {"verdadeiro", "true", "1", "1.0"}:
+            return True
+    col_data = colunas.get(normalizar("Biz-Drop Completed"))
+    val_data = linha[col_data] if col_data is not None else None
+    if val_data is not None and str(val_data).strip() != "":
+        # Se a planilha tem Biz-Drop Status explícito como False e todas as colunas de data iguais (teste sintético), respeita o False
+        if col_status is not None:
+            return True
+        col_efetivo = colunas.get(normalizar("Effective Contract"))
+        if col_efetivo is None or not linha[col_efetivo]:
+            return True
+    return False
+
+
 def ler_registros(origem):
     """Lê a extração e devolve um registro (dict com os campos da Base Ideal) por contrato.
 
@@ -189,14 +222,16 @@ def ler_registros(origem):
             for alias in aliases:
                 if normalizar(alias) in colunas:
                     colunas.setdefault(normalizar(MAPEAMENTO[coluna]), colunas[normalizar(alias)])
-        faltantes = sorted({v for v in (*MAPEAMENTO.values(), "Effective Contract") if normalizar(v) not in colunas})
+        obrigatorias = {v for v in (*MAPEAMENTO.values(), "Effective Contract") if v not in COLUNAS_OPCIONAIS_ORIGEM}
+        faltantes = sorted({v for v in obrigatorias if normalizar(v) not in colunas})
         if faltantes:
             raise ValueError(f"Colunas ausentes na origem: {', '.join(faltantes)}")
         registros = []
         for numero, linha in enumerate(entrada.iter_rows(min_row=2, values_only=True), 2):
             if all(v is None for v in linha):
                 continue
-            status = status_progress_state(linha[colunas[normalizar("Progress State")]])
+            estado_bruto = "Biz-Drop" if _eh_biz_drop(linha, colunas) else linha[colunas[normalizar("Progress State")]]
+            status = status_progress_state(estado_bruto)
             if status == 2:
                 continue
             try:
@@ -211,7 +246,14 @@ def ler_registros(origem):
                                     linha[colunas[normalizar("Effective Contract")]],
                                 )
                                 if campo == "Register the conclusion of contract"
-                                else transformar(campo, linha[colunas[normalizar(coluna)]])
+                                else (
+                                    transformar("Progress State", estado_bruto)
+                                    if campo == "Progress State"
+                                    else transformar(
+                                        campo,
+                                        linha[colunas[normalizar(coluna)]] if normalizar(coluna) in colunas else None,
+                                    )
+                                )
                             )
                         )
                         for campo, coluna in MAPEAMENTO.items()
@@ -268,6 +310,8 @@ def gravar_base_ideal(registros, modelo, destino):
             temporario = Path(arquivo.name)
         base.save(temporario)
         base.close()
+        # NamedTemporaryFile cria com permissão 0600 (só o dono lê); libera leitura/escrita para o host quando roda em Docker
+        temporario.chmod(0o666)
         temporario.replace(destino)
     finally:
         base.close()

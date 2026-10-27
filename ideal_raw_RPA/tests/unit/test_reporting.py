@@ -187,3 +187,45 @@ def test_parada_solicitada_e_falha_de_rede_conta_como_nao():
 
     cliente, _ = cliente_com(erro=ConnectionError("fora do ar"))
     assert cliente.parada_solicitada(3) is False
+
+
+def test_listar_contratos_pagina_unica_e_multiplas_paginas():
+    respostas = [
+        FakeResponse(
+            200,
+            {
+                "count": 3,
+                "results": [
+                    {"contractNumber": "C1", "progressState": "Effective Contract"},
+                    {"contractNumber": "C2", "progressState": "Review Completed"},
+                ],
+            },
+        ),
+        FakeResponse(
+            200,
+            {
+                "count": 3,
+                "results": [
+                    {"contractNumber": "C3", "progressState": "Contract Expired"},
+                ],
+            },
+        ),
+    ]
+    cliente, session = cliente_com(respostas)
+    contratos = cliente.listar_contratos(page_size=2)
+
+    assert list(contratos.keys()) == ["C1", "C2", "C3"]
+    assert contratos["C1"]["progressState"] == "Effective Contract"
+    assert [c["url"] for c in session.chamadas] == [
+        "http://api/api/contracts/?page=1&page_size=2",
+        "http://api/api/contracts/?page=2&page_size=2",
+    ]
+
+
+def test_listar_contratos_sem_url_ou_com_erro_devolve_vazio():
+    session = FakeSession()
+    assert MonitorClient(None, session=session).listar_contratos() == {}
+    assert session.chamadas == []
+
+    cliente, _ = cliente_com(erro=ConnectionError("indisponível"))
+    assert cliente.listar_contratos() == {}

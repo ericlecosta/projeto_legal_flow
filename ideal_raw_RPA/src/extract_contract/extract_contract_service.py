@@ -33,6 +33,8 @@ from urllib.parse import urljoin
 import pandas as pd
 from playwright.sync_api import BrowserContext, Error as PlaywrightError, Page, Request
 
+from src.base_ideal.preencher import transformar
+
 logger = logging.getLogger("rpa_lms.extract_contract")
 
 
@@ -298,7 +300,10 @@ _JS_COLETA_CORPO = """
 _JS_COLETA = "({ tabela, datas, status }) => {" + _JS_VISIVEL + _JS_COLETA_CORPO
 
 # Lê a tabela visível da sub-aba Contract Biz Drop (cabeçalho + linhas)
-_JS_TABELA_BIZ_DROP = "() => {" + _JS_VISIVEL + """
+_JS_TABELA_BIZ_DROP = (
+    "() => {"
+    + _JS_VISIVEL
+    + """
   const norm = (s) => (s || "").replace(/\\s+/g, " ").trim();
   const lerLinhas = (container, seletorLinha, seletorCelula) =>
     Array.from(container.querySelectorAll(seletorLinha))
@@ -335,6 +340,7 @@ _JS_TABELA_BIZ_DROP = "() => {" + _JS_VISIVEL + """
   return [];
 }
 """
+)
 
 
 # ---------------------------------------------------------------------------
@@ -433,6 +439,212 @@ def escolher_data_biz_drop(linhas: list[list[str]]) -> str:
 def filtrar_contratos(df: pd.DataFrame, coluna_filtro: str, filtro: str) -> pd.DataFrame:
     """Linhas cujo departamento contém o filtro (sem diferenciar maiúsculas)."""
     return df[df[coluna_filtro].str.contains(filtro, case=False, na=False, regex=False)].copy()
+
+
+def _normalizar_progress_state(valor: object) -> str:
+    """Normaliza o Progress State usando a mesma regra da Base Ideal."""
+    if valor is None:
+        return ""
+    texto = str(valor).strip()
+    if not texto:
+        return ""
+    return str(transformar("Progress State", texto) or "").strip()
+
+
+def _para_bool(valor: object) -> bool:
+    if isinstance(valor, bool):
+        return valor
+    return str(valor or "").strip().casefold() in ("true", "1", "verdadeiro", "yes")
+
+
+def contrato_mudou(estado_relatorio: str, contrato_banco: Optional[dict]) -> bool:
+    """
+    Decide se o contrato precisa ser aberto no LMS (True) ou se pode ser reaproveitado
+    do banco do monitor (False), comparando o Progress State do relatório consolidado
+    com o estado salvo na última execução.
+    """
+    if not contrato_banco or not isinstance(contrato_banco, dict):
+        return True
+
+    estado_rel = _normalizar_progress_state(estado_relatorio)
+    if not estado_rel:
+        return True
+
+    raw = contrato_banco.get("raw") or {}
+    numero = str(raw.get("Contract number") or contrato_banco.get("contractNumber") or "").strip()
+    if not numero:
+        return True
+
+    biz_drop_data = str(raw.get("Biz-Drop Completed") or contrato_banco.get("bizDropCompletedAt") or "").strip()
+    if estado_rel.casefold() == "biz-drop":
+        # Em Biz-Drop, só reaproveita quando a data de conclusão já foi coletada no banco
+        return not bool(biz_drop_data)
+
+    if biz_drop_data:
+        # Tinha Biz-Drop no banco, mas o relatório consolidado agora indica outro status
+        return True
+
+    estado_db = _normalizar_progress_state(raw.get("Progress State") or contrato_banco.get("progressState"))
+    if not estado_db:
+        return True
+
+    return estado_rel.casefold() != estado_db.casefold()
+
+
+def reconstruir_dados_contrato(
+    contrato_banco: dict,
+    dados_planilha_anterior: Optional[dict] = None,
+) -> dict:
+    """
+    Reconstrói um dicionário no formato de COLUNAS_FINAIS (contract_review_management.xlsx)
+    a partir do contrato retornado pela API do monitor (GET /api/contracts/), preservando
+    campos extras da planilha anterior em disco quando disponível.
+    """
+    base: dict = {}
+    if dados_planilha_anterior and str(dados_planilha_anterior.get("Management Number") or "").strip():
+        base.update(dados_planilha_anterior)
+
+    raw = contrato_banco.get("raw") or {}
+    flags = contrato_banco.get("flags") or {}
+
+    def _txt(*valores: object) -> str:
+        for v in valores:
+            if v is not None and str(v).strip() != "":
+                return str(v).strip()
+        return ""
+
+    contract_number = _txt(
+        raw.get("Contract number"), contrato_banco.get("contractNumber"), base.get("Contract Number")
+    )
+    management_number = _txt(contrato_banco.get("managementNumber"), contract_number, base.get("Management Number"))
+
+    main_type = _txt(raw.get("Main Contract Type"))
+    sub_type = _txt(raw.get("Contract type"), contrato_banco.get("contractType"))
+    if main_type and sub_type and main_type != sub_type:
+        contract_type = f"{main_type}\n{sub_type}"
+    else:
+        contract_type = main_type or sub_type or _txt(base.get("Contract Type"))
+
+    start_date = _txt(raw.get("Start date"), contrato_banco.get("periodStart"))
+    end_date = _txt(raw.get("End date"), contrato_banco.get("periodEnd"))
+    if start_date == "DATA INVÁLIDA" or end_date == "DATA INVÁLIDA":
+        contract_period = "DATA INVÁLIDA"
+    elif start_date and end_date:
+        contract_period = f"{start_date} ~ {end_date}"
+    else:
+        contract_period = _txt(base.get("Contract Period"))
+
+    amount = contrato_banco.get("amount")
+    if amount is None:
+        amount = raw.get("Amount")
+    currency = _txt(raw.get("Contract currency"), contrato_banco.get("currency"))
+    if amount is not None and str(amount).strip() != "" and currency:
+        contract_amount = f"{amount}[{currency}]"
+    else:
+        contract_amount = _txt(base.get("Contract Amount"))
+
+    conclusao = _txt(raw.get("Register the conclusion of contract"))
+    expirado = _para_bool(flags.get("expired")) or conclusao.casefold() == "expirado"
+    effective_contract = (
+        ""
+        if expirado
+        else _txt(contrato_banco.get("effectiveAt"), "" if conclusao.casefold() == "expirado" else conclusao)
+    )
+
+    biz_drop_completed = _txt(raw.get("Biz-Drop Completed"), contrato_banco.get("bizDropCompletedAt"))
+    progress_state = _txt(raw.get("Progress State"), contrato_banco.get("progressState"), base.get("Progress State"))
+    biz_drop_status = (
+        bool(biz_drop_completed)
+        or progress_state.casefold() == "biz-drop"
+        or _para_bool(base.get("Biz-Drop Status", False))
+    )
+    if biz_drop_status:
+        progress_state = "Biz-Drop"
+
+    qty_anterior = _txt(raw.get("Qty Review"), base.get("Qty Review"))
+    qty_review = parse_qty_review(qty_anterior) if qty_anterior else 0
+
+    return {
+        "Contract Number": contract_number,
+        "Department of the person in charge": _txt(
+            raw.get("Department of the person in charge"),
+            contrato_banco.get("department"),
+            base.get("Department of the person in charge"),
+        ),
+        "Management Number": management_number,
+        "Counterparty": _txt(raw.get("Counterparty"), contrato_banco.get("counterparty"), base.get("Counterparty")),
+        "Contract Name": _txt(raw.get("Contract name"), contrato_banco.get("contractName"), base.get("Contract Name")),
+        "Contract Type": contract_type,
+        "Requester": _txt(raw.get("The person in charge"), contrato_banco.get("requester"), base.get("Requester")),
+        "Progress State": progress_state,
+        "Contract Period": contract_period,
+        "Request Date": _txt(
+            raw.get("Request Date"), contrato_banco.get("reviewRequestedAt"), base.get("Request Date")
+        ),
+        "Request Legal Review": _txt(
+            raw.get("Request Legal Review"),
+            contrato_banco.get("legalReviewStartedAt"),
+            base.get("Request Legal Review"),
+        ),
+        "Review Completed": _txt(
+            raw.get("Review completed"), contrato_banco.get("reviewCompletedAt"), base.get("Review Completed")
+        ),
+        "Legal Team Consent in Progress": _txt(
+            raw.get("Agreement request"),
+            contrato_banco.get("consentRequestedAt"),
+            base.get("Legal Team Consent in Progress"),
+        ),
+        "Legal Team Consent Completed": _txt(
+            raw.get("Agreement has been completed"),
+            contrato_banco.get("consentCompletedAt"),
+            base.get("Legal Team Consent Completed"),
+        ),
+        "Processing Approval for Execution": _txt(
+            raw.get("Approval request"),
+            contrato_banco.get("approvalRequestedAt"),
+            base.get("Processing Approval for Execution"),
+        ),
+        "Approval Completed": _txt(
+            raw.get("Approval request completed"),
+            contrato_banco.get("approvalCompletedAt"),
+            base.get("Approval Completed"),
+        ),
+        "Effective Contract": effective_contract,
+        "Biz-Drop Completed": biz_drop_completed,
+        "Qty Review": qty_review,
+        "Contract Amount": contract_amount,
+        "A person in charge of legal (team)": _txt(
+            raw.get("Reviewer"),
+            contrato_banco.get("legalReviewer"),
+            base.get("A person in charge of legal (team)"),
+        ),
+        "Review Request Msg": _para_bool(base.get("Review Request Msg", False)),
+        "Review Completed Flag": _para_bool(base.get("Review Completed Flag", False)),
+        "Legal Team Consent": _para_bool(base.get("Legal Team Consent", False)),
+        "Approval Completed Flag": _para_bool(base.get("Approval Completed Flag", False)),
+        "Processing Approval": _para_bool(base.get("Processing Approval", False)),
+        "Contract Expired": expirado,
+        "Biz-Drop Status": biz_drop_status,
+    }
+
+
+def _ler_planilha_anterior(caminho: Path, coluna_contract_number: str) -> dict[str, dict]:
+    """Lê a planilha de extração anterior (se existir em disco) indexada pelo número do contrato."""
+    if not caminho.exists():
+        return {}
+    try:
+        df_ant = pd.read_excel(caminho, dtype=str).fillna("")
+        if coluna_contract_number not in df_ant.columns:
+            return {}
+        anterior: dict[str, dict] = {}
+        for _, linha in df_ant.iterrows():
+            numero = str(linha[coluna_contract_number]).strip()
+            if numero:
+                anterior[numero] = linha.to_dict()
+        return anterior
+    except Exception as exc:
+        logger.debug(f"Não foi possível ler planilha anterior {caminho}: {exc}")
+        return {}
 
 
 class EsperaEsgotada(Exception):
@@ -676,7 +888,9 @@ def _coletar_dados_contrato(
 
     return {
         **bruto["tabela"],
-        "Progress State": parse_progress_state(bruto["progress"]),
+        "Progress State": (
+            "Biz-Drop" if (biz_drop_status or biz_drop_completed) else parse_progress_state(bruto["progress"])
+        ),
         "Request Date": escolher_request_date(bruto.get("request_date", [])),
         **bruto["datas"],
         "Biz-Drop Completed": biz_drop_completed,
@@ -722,6 +936,8 @@ def extrair_contract_review_management(
     timeout: int = TIMEOUT_PADRAO_MS,
     tentativas: int = TENTATIVAS_PADRAO,
     somente_contratos: Optional[list[str]] = None,
+    contratos_anteriores: Optional[dict[str, dict]] = None,
+    extracao_completa: bool = False,
 ) -> str:
     """
     Executa a extração detalhada de contratos a partir do relatório consolidado.
@@ -737,6 +953,8 @@ def extrair_contract_review_management(
         timeout: Timeout (ms) de cada espera de tela (busca e detalhe).
         tentativas: Quantas vezes tentar cada contrato antes de deixá-lo sem dados.
         somente_contratos: Lista opcional de números de contrato para filtrar na validação.
+        contratos_anteriores: Contratos salvos na API do monitor indexados por contractNumber.
+        extracao_completa: Se True, ignora os contratos anteriores e força a leitura de todos no LMS.
 
     Returns:
         Caminho absoluto do arquivo contract_review_management.xlsx.
@@ -792,11 +1010,16 @@ def extrair_contract_review_management(
         resultados = []
         falhas: list[str] = []
         sem_data_biz_drop: list[str] = []
+        extraidos = 0
+        reaproveitados = 0
         total = len(df_filtrado)
         inicio_total = time.monotonic()
         pasta_erros = Path(caminho_destino).parent / "erros"
 
-        monitor = _MonitorRede(page.context)
+        anteriores = {} if extracao_completa else (contratos_anteriores or {})
+        planilha_anterior = _ler_planilha_anterior(Path(caminho_destino), coluna_contract_number) if anteriores else {}
+
+        monitor: Optional[_MonitorRede] = None
         detalhe: Optional[Page] = None
 
         try:
@@ -806,13 +1029,29 @@ def extrair_contract_review_management(
                     logger.warning(f"Linha {idx} sem Contract Number. Pulando.")
                     continue
 
-                logger.info(f"[{len(resultados)+1}/{total}] Processando {contract_number}")
                 origem = {
                     "Contract Number": contract_number,
                     "Department of the person in charge": str(row[coluna_filtro]).strip(),
                 }
+                estado_relatorio = str(row["Progress State"]).strip() if "Progress State" in df_filtrado.columns else ""
+                contrato_banco = anteriores.get(contract_number)
+
+                if not extracao_completa and not contrato_mudou(estado_relatorio, contrato_banco):
+                    dados = reconstruir_dados_contrato(contrato_banco, planilha_anterior.get(contract_number))
+                    reaproveitados += 1
+                    logger.info(
+                        f"[{len(resultados)+1}/{total}] {contract_number} sem mudança de status "
+                        f"('{ _normalizar_progress_state(estado_relatorio) }'); reaproveitando dados do banco."
+                    )
+                    resultados.append({**{c: "" for c in COLUNAS_FINAIS}, **dados, **origem})
+                    continue
+
+                logger.info(f"[{len(resultados)+1}/{total}] Processando {contract_number}")
                 inicio = time.monotonic()
                 dados = None
+
+                if monitor is None:
+                    monitor = _MonitorRede(page.context)
 
                 for tentativa in range(1, tentativas + 1):
                     try:
@@ -835,6 +1074,7 @@ def extrair_contract_review_management(
                             pasta_erros=pasta_erros,
                             sem_data_biz_drop=sem_data_biz_drop,
                         )
+                        extraidos += 1
                         logger.info(f"{contract_number} coletado em {time.monotonic() - inicio:.1f}s")
                         break
 
@@ -856,9 +1096,13 @@ def extrair_contract_review_management(
                 resultados.append({**{c: "" for c in COLUNAS_FINAIS}, **(dados or {}), **origem})
         finally:
             _fechar_pagina(detalhe, monitor)
-            monitor.desligar()
+            if monitor is not None:
+                monitor.desligar()
 
-        logger.info(f"{len(resultados)} contratos processados em {time.monotonic() - inicio_total:.1f}s")
+        logger.info(
+            f"{len(resultados)} contratos processados em {time.monotonic() - inicio_total:.1f}s "
+            f"({extraidos} extraídos do LMS, {reaproveitados} reaproveitados do banco)"
+        )
         if sem_data_biz_drop:
             logger.warning(
                 f"{len(sem_data_biz_drop)} contrato(s) em Biz-Drop sem data de conclusão: "

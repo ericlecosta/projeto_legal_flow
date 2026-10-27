@@ -118,3 +118,29 @@ class MonitorClient:
     def enviar_contratos(self, contratos: list[dict[str, Any]]) -> dict[str, Any] | None:
         """Envia os contratos tratados (upsert pelo número). Devolve {received, created, updated}."""
         return self._request("PUT", "/rpa/contracts/", {"executionId": self.execution_id, "contracts": contratos})
+
+    def listar_contratos(self, page_size: int = 100) -> dict[str, dict[str, Any]]:
+        """
+        Busca os contratos salvos na API do monitor (GET /contracts/), indexados por contractNumber.
+        Falha de comunicação ou API desativada devolve dict vazio (fallback para extração completa).
+        """
+        if not self.ativo:
+            return {}
+        contratos: dict[str, dict[str, Any]] = {}
+        pagina = 1
+        while True:
+            data = self._request("GET", f"/contracts/?page={pagina}&page_size={page_size}")
+            if not data:
+                break
+            resultados = data.get("results") or []
+            if not resultados:
+                break
+            for item in resultados:
+                numero = str(item.get("contractNumber") or "").strip()
+                if numero:
+                    contratos[numero] = item
+            total = data.get("count")
+            if len(resultados) < page_size or (isinstance(total, int) and len(contratos) >= total):
+                break
+            pagina += 1
+        return contratos

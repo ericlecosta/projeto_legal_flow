@@ -16,6 +16,7 @@ Variáveis de ambiente:
     LMS_TIMEOUT_MS    Espera máxima (ms) de cada tela na extração dos contratos (padrão: 90000).
     LMS_TENTATIVAS    Tentativas por contrato antes de deixá-lo sem dados (padrão: 3).
     LMS_SOMENTE_CONTRATOS  Números de contrato separados por vírgula para filtrar antes da coleta.
+    LMS_EXTRACAO_COMPLETA  Se "true", ignora os dados do banco e reextrai todos os contratos no LMS.
 """
 
 import logging
@@ -44,6 +45,7 @@ FILTRO_DEPARTAMENTO = os.getenv("LMS_FILTRO_DEPARTAMENTO", "mao")
 TIMEOUT_MS = int(os.getenv("LMS_TIMEOUT_MS", "90000"))
 TENTATIVAS = int(os.getenv("LMS_TENTATIVAS", "3"))
 SOMENTE_CONTRATOS = [c.strip() for c in os.getenv("LMS_SOMENTE_CONTRATOS", "").split(",") if c.strip()]
+EXTRACAO_COMPLETA = os.getenv("LMS_EXTRACAO_COMPLETA", "false").lower() in ("true", "1", "yes")
 
 
 def _configurar_logging():
@@ -86,6 +88,8 @@ def main() -> int:
             timeout=TIMEOUT_MS,
             tentativas=TENTATIVAS,
             somente_contratos=SOMENTE_CONTRATOS or None,
+            contratos_anteriores={} if EXTRACAO_COMPLETA else cliente.listar_contratos(),
+            extracao_completa=EXTRACAO_COMPLETA,
         ),
         fechar=fechar,
     )
