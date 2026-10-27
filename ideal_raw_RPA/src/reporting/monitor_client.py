@@ -2,7 +2,7 @@
 Cliente da API do LMS RPA Monitor (backend FastAPI).
 
 O robô usa este cliente para registrar a execução (etapas, logs e resultado) e enviar os
-contratos consolidados para o banco. Falhas de comunicação nunca derrubam o robô: viram um
+contratos tratados (Base Ideal) para o banco. Falhas de comunicação nunca derrubam o robô: viram um
 aviso no log local e a chamada devolve None.
 
 Sem API_URL configurada, o cliente fica desativado e o robô roda sozinho, como antes.
@@ -116,5 +116,5 @@ class MonitorClient:
         return bool(data and data.get("stopRequested"))
 
     def enviar_contratos(self, contratos: list[dict[str, Any]]) -> dict[str, Any] | None:
-        """Envia os contratos consolidados (upsert pelo número). Devolve {received, created, updated}."""
+        """Envia os contratos tratados (upsert pelo número). Devolve {received, created, updated}."""
         return self._request("PUT", "/rpa/contracts/", {"executionId": self.execution_id, "contracts": contratos})

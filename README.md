@@ -17,10 +17,12 @@ hands-on-equipe1-legal/
 │   │   ├── auth/                # OTP (autoatendimento + captcha) e login SSO no LMS
 │   │   ├── extraction/          # Download do relatório consolidado de contratos
 │   │   ├── extract_contract/    # Extração detalhada de cada contrato (timeline e datas)
+│   │   ├── base_ideal/          # Tratamento da extração para a Base Ideal (regras da Legenda) e formato da API
 │   │   ├── reporting/           # Cliente da API do monitor + handler que envia os logs
 │   │   └── pipeline.py          # Fluxo completo em etapas, reportado ao monitor
 │   ├── tests/                   # pytest: unit/ e integration/
-│   ├── main.py                  # Execução completa (login → relatório → extração detalhada)
+│   ├── main.py                  # Execução completa (login → relatório → extração → tratamento → banco)
+│   ├── preencher_base_ideal.py  # Só o tratamento, a partir de uma extração já baixada (sem LMS)
 │   ├── obter_otp.py             # Script CLI para gerar/testar o OTP
 │   ├── login.py                 # Script CLI para validar o login completo
 │   ├── requirements.txt         # Dependências do RPA (requirements-dev.txt: pytest e black)
@@ -211,8 +213,9 @@ Para trabalhar no front sem a API, mude `useMocks` para `true` nesse arquivo.
 ### Robô real gravando no banco (`RPA_MODE=real`)
 
 O robô registra cada execução (etapas, logs e resultado) pelas rotas `/api/rpa/`, protegidas pelo cabeçalho
-`X-RPA-Token`. A rota de contratos (`PUT /api/rpa/contracts/`) e a tela **Contratos** já estão prontas, mas só recebem
-dados quando a consolidação da base Ideal Raw for ligada ao robô (em desenvolvimento por outra frente).
+`X-RPA-Token`. O fluxo tem cinco etapas: login no LMS, download do relatório, extração dos contratos, tratamento
+da base (gera `base_ideal.xlsx` no modelo da Base Ideal) e envio para o banco, que alimenta a tela **Contratos**.
+Contratos em Biz-Holding ou Signed Contract Registered ficam de fora; nos status amarelos da Legenda, as datas ficam vazias.
 
 1. No `.env` da raiz, defina `RPA_MODE=real`, um `RPA_API_TOKEN` longo
    (`python -c "import secrets; print(secrets.token_urlsafe(32))"`) e as credenciais LGE.
@@ -223,7 +226,11 @@ dados quando a consolidação da base Ideal Raw for ligada ao robô (em desenvol
 
 Só uma execução roda por vez, venha ela do painel ou do `docker compose run`. Se nenhum worker assumir o pedido
 em `RPA_CLAIM_TIMEOUT_SECONDS` (60 s por padrão), a execução falha com "Robô indisponível". Para ver os logs do
-worker, use `docker compose logs -f rpa-worker`. As planilhas geradas ficam em `ideal_raw_RPA/downloads/`.
+worker, use `docker compose logs -f rpa-worker`. As planilhas geradas (relatório, extração e `base_ideal.xlsx`)
+ficam em `ideal_raw_RPA/downloads/`.
+
+Para tratar uma extração já baixada, sem o LMS: `python ideal_raw_RPA/preencher_base_ideal.py --origem <extração.xlsx> --destino <saída.xlsx>`
+(sem argumentos, usa `docs/planilha_de_dados/contract_review_management.xlsx`).
 
 > Se o banco já tem o histórico fictício do modo simulado, recrie o volume antes de trocar para o modo real:
 > `docker compose down -v`.
@@ -237,7 +244,7 @@ worker, use `docker compose logs -f rpa-worker`. As planilhas geradas ficam em `
 | `POST /api/rpa/jobs/claim/` | worker | Pega o próximo pedido do painel (`204` se a fila estiver vazia) |
 | `POST /api/rpa/executions/{id}/start/` | robô (via worker) | Assume a execução aberta pelo painel, com as etapas |
 | `GET /api/rpa/jobs/{id}/` | worker | Diz se o painel pediu para interromper |
-| `PUT /api/rpa/contracts/` | robô (após a consolidação) | Grava a base Ideal Raw (upsert pelo número do contrato) |
+| `PUT /api/rpa/contracts/` | robô (etapa "Envio para o banco") | Grava a base Ideal Raw (upsert pelo número do contrato) |
 | `GET /api/contracts/` · `GET /api/contracts/summary/` | front | Lista, busca e resumo por status |
 
 ---

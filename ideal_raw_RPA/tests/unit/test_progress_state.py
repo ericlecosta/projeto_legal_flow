@@ -1,12 +1,12 @@
-import runpy
 import tempfile
 import unittest
 from pathlib import Path
 
 from openpyxl import Workbook, load_workbook
 
+from src.base_ideal import preencher
 
-modulo = runpy.run_path(str(Path(__file__).parents[2] / "preencher_base_ideal.py"))
+modulo = vars(preencher)
 
 
 class ProgressStateTest(unittest.TestCase):
@@ -27,8 +27,9 @@ class ProgressStateTest(unittest.TestCase):
 
     def test_pessoa_responsavel(self):
         transformar = modulo["transformar"]
-        self.assertEqual(transformar("The person in charge", "MARCELLE CUNHA(LGESP GA Support Part - MAO)"),
-                         "MARCELLE CUNHA")
+        self.assertEqual(
+            transformar("The person in charge", "MARCELLE CUNHA(LGESP GA Support Part - MAO)"), "MARCELLE CUNHA"
+        )
         self.assertEqual(transformar("The person in charge", " ANA SOUZA (Departamento) "), "ANA SOUZA")
         self.assertEqual(transformar("The person in charge", "IOMAR FALCAO"), "IOMAR FALCAO")
         self.assertIsNone(transformar("The person in charge", None))
@@ -37,28 +38,38 @@ class ProgressStateTest(unittest.TestCase):
     def test_reviewer(self):
         transformar = modulo["transformar"]
         for nome in ("BARBARA LUSTOSA", "DYDRA ANDRADE"):
-            self.assertEqual(transformar("Reviewer", f"[Main manager]{nome}\nLegal Team Leader Approval Required"), nome)
+            self.assertEqual(
+                transformar("Reviewer", f"[Main manager]{nome}\nLegal Team Leader Approval Required"), nome
+            )
             self.assertEqual(transformar("Reviewer", nome), nome)
         self.assertEqual(transformar("Reviewer", "Unassigned"), "Unassigned")
-        for valor in (None, "", "   ", "[Main manager]\nLegal Team Leader Approval Required",
-                      "Responsável não definido\nAguardando atribuição"):
+        for valor in (
+            None,
+            "",
+            "   ",
+            "[Main manager]\nLegal Team Leader Approval Required",
+            "Responsável não definido\nAguardando atribuição",
+        ):
             self.assertEqual(transformar("Reviewer", valor), valor)
 
     def test_regras_na_planilha(self):
         with tempfile.TemporaryDirectory() as pasta:
-            origem, modelo, destino = [Path(pasta) / nome for nome in
-                                       ("origem.xlsx", "modelo.xlsx", "destino.xlsx")]
+            origem, modelo, destino = [Path(pasta) / nome for nome in ("origem.xlsx", "modelo.xlsx", "destino.xlsx")]
             colunas = list(dict.fromkeys([*modulo["MAPEAMENTO"].values(), "Effective Contract"]))
             estados = modulo["STATUS_PROGRESS_STATE"]
             wb = Workbook()
             wb.active.append(colunas)
             for estado in [*estados, None, "Estado desconhecido"]:
                 dados = dict.fromkeys(colunas, "2026-10-15 13:55:58")
-                dados.update({"Management Number": estado or "sem estado",
-                              "Progress State": f"{estado}\nDetalhes do LMS" if estado else None,
-                              "Contract Period": "2026-01-01 12:34:56 ~ 2026-12-31 23:59:59",
-                              "Contract Expired": False,
-                              "Contract Amount": "100.00[BRL]"})
+                dados.update(
+                    {
+                        "Management Number": estado or "sem estado",
+                        "Progress State": f"{estado}\nDetalhes do LMS" if estado else None,
+                        "Contract Period": "2026-01-01 12:34:56 ~ 2026-12-31 23:59:59",
+                        "Contract Expired": False,
+                        "Contract Amount": "100.00[BRL]",
+                    }
+                )
                 wb.active.append([dados[c] for c in colunas])
             wb.save(origem)
             wb.close()
@@ -70,21 +81,29 @@ class ProgressStateTest(unittest.TestCase):
             wb = load_workbook(destino)
             try:
                 nomes = list(modulo["MAPEAMENTO"])
-                registros = [dict(zip(nomes, r)) for r in
-                             wb.active.iter_rows(min_row=2, values_only=True)]
+                registros = [dict(zip(nomes, r)) for r in wb.active.iter_rows(min_row=2, values_only=True)]
                 esperados = [e for e, status in estados.items() if status != 2]
                 self.assertEqual(quantidade, len(esperados) + 2)
                 self.assertEqual(wb.active.max_row, quantidade + 1)
                 for coluna in wb.active.iter_cols():
-                    largura = max((len(linha) for celula in coluna if celula.value is not None
-                                   for linha in str(celula.value).splitlines()), default=0)
-                    self.assertEqual(wb.active.column_dimensions[coluna[0].column_letter].width,
-                                     max(15, min(largura + 2, 45)))
+                    largura = max(
+                        (
+                            len(linha)
+                            for celula in coluna
+                            if celula.value is not None
+                            for linha in str(celula.value).splitlines()
+                        ),
+                        default=0,
+                    )
+                    self.assertEqual(
+                        wb.active.column_dimensions[coluna[0].column_letter].width, max(15, min(largura + 2, 45))
+                    )
                     for celula in coluna:
                         self.assertFalse(celula.alignment.wrap_text)
                         self.assertEqual(celula.alignment.vertical, "top")
-                self.assertEqual([r["Contract number"] for r in registros],
-                                 esperados + ["sem estado", "Estado desconhecido"])
+                self.assertEqual(
+                    [r["Contract number"] for r in registros], esperados + ["sem estado", "Estado desconhecido"]
+                )
                 for registro in registros:
                     status = estados.get(registro["Contract number"])
                     for campo in modulo["CAMPOS_DATA"]:
@@ -128,9 +147,14 @@ class ProgressStateTest(unittest.TestCase):
         from datetime import date, datetime
 
         for campo in modulo["CAMPOS_DATA"] - {"Start date", "End date"}:
-            for valor in (datetime(2026, 10, 8, 13, 55, 58), date(2026, 10, 8),
-                          "2026-10-08 13:55:58", "2026-10-08T13:55:58",
-                          "08/10/2026 13:55:58", "2026-10-08"):
+            for valor in (
+                datetime(2026, 10, 8, 13, 55, 58),
+                date(2026, 10, 8),
+                "2026-10-08 13:55:58",
+                "2026-10-08T13:55:58",
+                "08/10/2026 13:55:58",
+                "2026-10-08",
+            ):
                 self.assertEqual(modulo["transformar"](campo, valor), "2026-10-08")
             self.assertIsNone(modulo["transformar"](campo, None))
         self.assertEqual(modulo["somente_data"]("Expirado"), "Expirado")

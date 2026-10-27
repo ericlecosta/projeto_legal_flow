@@ -1,13 +1,7 @@
-import importlib.util
-from pathlib import Path
-
 import pytest
 from openpyxl import Workbook, load_workbook
 
-
-spec = importlib.util.spec_from_file_location("preencher_base_ideal", Path(__file__).parents[2] / "preencher_base_ideal.py")
-modulo = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(modulo)
+from src.base_ideal import preencher as modulo
 
 
 def test_transformacoes():
@@ -28,9 +22,13 @@ def test_preenchimento_preserva_cabecalhos_e_substitui_exemplos(tmp_path):
     wb = Workbook()
     colunas = list(dict.fromkeys([*modulo.MAPEAMENTO.values(), "Effective Contract"]))
     wb.active.append(colunas)
-    dados = {"Contract Name": "=texto", "Contract Type": "Others\nLeasing",
-             "Contract Period": "2026-01-01 ~ 2026-12-31", "Contract Amount": "1,234.56[BRL] Brazil",
-             "Contract Expired": False}
+    dados = {
+        "Contract Name": "=texto",
+        "Contract Type": "Others\nLeasing",
+        "Contract Period": "2026-01-01 ~ 2026-12-31",
+        "Contract Amount": "1,234.56[BRL] Brazil",
+        "Contract Expired": False,
+    }
     wb.active.append([dados.get(c) for c in colunas])
     wb.active.cell(2, colunas.index("Contract Name") + 1).data_type = "s"
     wb.save(origem)

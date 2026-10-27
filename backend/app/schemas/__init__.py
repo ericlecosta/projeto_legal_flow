@@ -24,6 +24,7 @@ StepKey = Literal[
     "lms_login",
     "report_download",
     "contract_details",
+    "base_ideal",
     "data_upload",
 ]
 StepStatus = Literal["success", "failed", "running", "pending", "skipped"]
@@ -157,7 +158,7 @@ class RpaExecutionFinish(CamelModel):
 
 
 class ContractIn(CamelModel):
-    """Um contrato da base Ideal Raw, já consolidado pelo robô (ideal_raw_RPA/src/consolidation)."""
+    """Um contrato da base Ideal Raw, já tratado pelo robô (ideal_raw_RPA/src/base_ideal)."""
 
     contract_number: str = Field(min_length=1, max_length=32)
     management_number: str | None = None
