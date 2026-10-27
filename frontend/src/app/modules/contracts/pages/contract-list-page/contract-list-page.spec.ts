@@ -70,6 +70,23 @@ describe('ContractListPage', () => {
     expect(el.textContent).toContain('Mostrando 1-2 de 2 contratos');
   });
 
+  it('contratos sem status aparecem só como total, sem virar filtro selecionado', async () => {
+    await render();
+    http.expectOne('/api/contracts/summary/').flush({
+      ...SUMMARY,
+      total: 5,
+      byProgressState: [...SUMMARY.byProgressState, { progressState: null, count: 1 }],
+    });
+    listRequests()[0].flush({ count: 5, results: CONTRACTS_MOCK });
+    await settle();
+
+    expect(el.querySelectorAll('[role="group"] button')).toHaveLength(2);
+    expect(el.querySelector('[aria-pressed="true"]')).toBeNull();
+    expect(
+      el.querySelector('[data-testid="no-status-count"]')!.textContent!.replace(/\s+/g, ' ').trim(),
+    ).toBe('Sem status 1');
+  });
+
   it('filtra pelo status ao clicar no resumo e limpa o filtro', async () => {
     await render();
     http.expectOne('/api/contracts/summary/').flush(SUMMARY);

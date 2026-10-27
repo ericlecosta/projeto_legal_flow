@@ -27,7 +27,8 @@
   class="mb-6 shrink-0 rounded-md border border-border-soft bg-surface px-4 py-3 text-sm text-fg-muted"
   role="note"
 >
-  O tratamento da base ainda está em andamento: campos que o robô não reconheceu aparecem como "-".
+  Contratos em Biz-Holding ou Signed Contract Registered não entram na base. Datas que o LMS não
+  informou, ou que o status não usa, aparecem como "-".
 </p>
 
 <!-- Resumo por status: também funciona como filtro -->
@@ -36,20 +37,31 @@
     @if (summaryData()!.total > 0) {
       <div class="mb-6 flex shrink-0 flex-wrap gap-2" role="group" aria-label="Filtrar por status">
         @for (item of summaryData()!.byProgressState; track item.progressState) {
-          <button
-            type="button"
-            (click)="toggleState(item.progressState)"
-            [attr.aria-pressed]="filters().progressState === (item.progressState ?? '')"
-            class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm transition-colors duration-200"
-            [class]="
-              filters().progressState === (item.progressState ?? '')
-                ? 'border-primary bg-surface-elevated text-fg'
-                : 'border-border-soft bg-surface text-fg-muted hover:text-fg'
-            "
-          >
-            {{ label(item.progressState) }}
-            <span class="font-mono text-xs text-fg-subtle">{{ item.count | number }}</span>
-          </button>
+          @if (item.progressState) {
+            <button
+              type="button"
+              (click)="toggleState(item.progressState)"
+              [attr.aria-pressed]="filters().progressState === item.progressState"
+              class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm transition-colors duration-200"
+              [class]="
+                filters().progressState === item.progressState
+                  ? 'border-primary bg-surface-elevated text-fg'
+                  : 'border-border-soft bg-surface text-fg-muted hover:text-fg'
+              "
+            >
+              {{ label(item.progressState) }}
+              <span class="font-mono text-xs text-fg-subtle">{{ item.count | number }}</span>
+            </button>
+          } @else {
+            <!-- A API não filtra por "sem status": só o total -->
+            <span
+              class="inline-flex items-center gap-2 rounded-full border border-dashed border-border-soft px-3 py-1 text-sm text-fg-subtle"
+              data-testid="no-status-count"
+            >
+              {{ label(null) }}
+              <span class="font-mono text-xs">{{ item.count | number }}</span>
+            </span>
+          }
         }
       </div>
     }
@@ -142,18 +154,24 @@
                 class="transition-colors duration-200 hover:bg-surface-elevated"
                 data-testid="contract-row"
               >
-                <td class="max-w-[16rem] px-4 py-4">
+                <td class="max-w-[14rem] px-4 py-4">
                   <p class="truncate text-sm font-semibold" [title]="contract.contractName ?? ''">
                     {{ contract.contractName ?? '-' }}
                   </p>
-                  <p class="mt-1 font-mono text-xs text-fg-subtle">
+                  <p
+                    class="mt-1 truncate font-mono text-xs text-fg-subtle"
+                    [title]="contract.contractType ?? ''"
+                  >
                     {{ contract.contractNumber }}
                     @if (contract.contractType) {
                       · {{ contract.contractType }}
                     }
                   </p>
                 </td>
-                <td class="max-w-[12rem] truncate px-4 py-4 text-sm text-fg-muted">
+                <td
+                  class="max-w-[10rem] truncate px-4 py-4 text-sm text-fg-muted"
+                  [title]="contract.counterparty ?? ''"
+                >
                   {{ contract.counterparty ?? '-' }}
                 </td>
                 <td class="px-4 py-4">
@@ -184,8 +202,8 @@
                   @if (hasActiveFilters()) {
                     Nenhum contrato encontrado para os filtros selecionados.
                   } @else {
-                    A base ainda está vazia. Os contratos aparecem aqui quando a consolidação da
-                    base Ideal Raw for ligada ao robô.
+                    A base ainda está vazia. Os contratos aparecem aqui quando o robô concluir uma
+                    execução.
                   }
                 </td>
               </tr>
