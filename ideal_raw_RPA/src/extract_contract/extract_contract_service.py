@@ -298,10 +298,7 @@ _JS_COLETA_CORPO = """
 _JS_COLETA = "({ tabela, datas, status }) => {" + _JS_VISIVEL + _JS_COLETA_CORPO
 
 # Lê a tabela visível da sub-aba Contract Biz Drop (cabeçalho + linhas)
-_JS_TABELA_BIZ_DROP = (
-    "() => {"
-    + _JS_VISIVEL
-    + """
+_JS_TABELA_BIZ_DROP = "() => {" + _JS_VISIVEL + """
   const norm = (s) => (s || "").replace(/\\s+/g, " ").trim();
   const lerLinhas = (container, seletorLinha, seletorCelula) =>
     Array.from(container.querySelectorAll(seletorLinha))
@@ -338,7 +335,6 @@ _JS_TABELA_BIZ_DROP = (
   return [];
 }
 """
-)
 
 
 # ---------------------------------------------------------------------------
