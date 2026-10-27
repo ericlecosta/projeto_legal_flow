@@ -22,6 +22,7 @@ reaberta do zero a cada nova tentativa. Na última falha, um print da tela vai p
 a pasta "erros" ao lado da planilha, para diagnóstico.
 """
 
+from datetime import datetime
 import logging
 import re
 import time
@@ -48,10 +49,15 @@ BASE_URL = "https://lms.lge.com/#/app/elastic_search?q={contract_number}"
 
 SELETOR_LINK_CONTRATO = 'a[href*="/app/contract/save?id="]'
 SELETOR_LABEL_DETALHE = 'span[class="ContractName_Label"]'
+SELETOR_BIZ_DROP_ITEM = '#progress_body_id div[id^="Item_Id_"]'
+SELETOR_ABA_APPROVAL_HISTORY = '.nav-tabs .nav-link:has-text("Approval History")'
+SELETOR_ABA_CONTRACT_BIZ_DROP = 'a.nav-link:has-text("Contract Biz Drop")'
+SELETOR_ABA_COMMENT = '.nav-tabs .nav-link:has-text("Comment")'
 
 # Padrões, sobrescritos por LMS_TIMEOUT_MS e LMS_TENTATIVAS no main.py
 TIMEOUT_PADRAO_MS = 90_000
 TENTATIVAS_PADRAO = 3
+TENTATIVAS_BIZ_DROP = 2
 
 # Tempo sem requisições pendentes nem mudanças no DOM para considerar a tela pronta
 QUIETUDE_DETALHE_MS = 500
@@ -90,7 +96,6 @@ STATUS_FIELDS = {
 # Colunas que são DATAS — extraídas como "o span.Date mais próximo
 # que precede o texto âncora na ordem do documento"
 DATE_FIELDS = {
-    "I requested a review of the contract.": "I request a review of the contract.",
     "Request Legal Review": "Status changed to in ‘Legal Review in Progress’",
     "Review Completed": "Status changed to in ‘Review Completed’",
     "Legal Team Consent in Progress": "Status changed to in ‘Legal Team Consent in Progress’",
@@ -98,10 +103,10 @@ DATE_FIELDS = {
     "Processing Approval for Execution": "Status changed to in ‘Processing Approval for Execution ’",
     "Approval Completed": "Status changed to in ‘Approval Completed ’",
     "Effective Contract": "Status changed to in ‘Effective Contract’",
-    "Biz-Drop Completed": "Status changed to in ‘Biz-Drop Completed’",
 }
 
 _PROGRESS_STATE_RE = re.compile(r"Status changed to in\s+(.+)", re.IGNORECASE)
+_FORMATOS_DATA_HORA = ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d")
 
 # Colunas copiadas do relatório consolidado (a tela de detalhe não mostra o departamento)
 COLUNAS_RELATORIO = ["Contract Number", "Department of the person in charge"]
@@ -113,7 +118,7 @@ for nome in TABELA_FIELDS:
     if nome == "Requester":
         COLUNAS_FINAIS.append("Progress State")
     if nome == "Contract Period":
-        COLUNAS_FINAIS.append("I requested a review of the contract.")
+        COLUNAS_FINAIS.append("Request Date")
         COLUNAS_FINAIS.append("Request Legal Review")
         COLUNAS_FINAIS.append("Review Completed")
         COLUNAS_FINAIS.append("Legal Team Consent in Progress")
@@ -122,8 +127,10 @@ for nome in TABELA_FIELDS:
         COLUNAS_FINAIS.append("Approval Completed")
         COLUNAS_FINAIS.append("Effective Contract")
         COLUNAS_FINAIS.append("Biz-Drop Completed")
+        COLUNAS_FINAIS.append("Qty Review")
 
 COLUNAS_FINAIS.extend(STATUS_FIELDS)
+COLUNAS_FINAIS.append("Biz-Drop Status")
 
 
 # ---------------------------------------------------------------------------
@@ -248,10 +255,86 @@ _JS_COLETA_CORPO = """
     resultadoStatus[coluna] = el ? visivel(el) : false;
   }
 
-  return { tabela: resultadoTabela, datas: resultadoDatas, progress, status: resultadoStatus };
+  const ehTextoBizDrop = (el) => norm(el.textContent).toLowerCase() === "biz-drop";
+  const coletarBizDropStatus = () =>
+    Array.from(document.querySelectorAll('#progress_body_id div[id^="Item_Id_"]')).some(
+      (el) => visivel(el) && (ehTextoBizDrop(el) || Array.from(el.querySelectorAll("*")).some(ehTextoBizDrop))
+    );
+
+  const coletarRequestDates = () => {
+    const procurado = "i request a review of the contract.";
+    const datasEncontradas = [];
+    for (const item of document.querySelectorAll(".CommentTimeline_Body")) {
+      if (!norm(item.textContent).toLowerCase().includes(procurado)) continue;
+      const dataEl = item.querySelector(".Date");
+      if (dataEl) {
+        const textoData = dataEl.innerText.trim();
+        if (textoData) datasEncontradas.push(textoData);
+      }
+    }
+    return datasEncontradas;
+  };
+
+  const coletarQtyReview = () => {
+    const titulo = "history of completed review";
+    const card = Array.from(document.querySelectorAll(".card")).find(
+      (c) => norm(c.textContent).toLowerCase().includes(titulo) && c.querySelector(".Dot")
+    );
+    const dot = card ? card.querySelector(".Dot") : null;
+    return dot ? dot.innerText.trim() : "";
+  };
+
+  return {
+    tabela: resultadoTabela,
+    datas: resultadoDatas,
+    progress,
+    status: resultadoStatus,
+    bizdrop: coletarBizDropStatus(),
+    request_date: coletarRequestDates(),
+    qty_review_texto: coletarQtyReview(),
+  };
 }
 """
 _JS_COLETA = "({ tabela, datas, status }) => {" + _JS_VISIVEL + _JS_COLETA_CORPO
+
+# Lê a tabela visível da sub-aba Contract Biz Drop (cabeçalho + linhas)
+_JS_TABELA_BIZ_DROP = "() => {" + _JS_VISIVEL + """
+  const norm = (s) => (s || "").replace(/\\s+/g, " ").trim();
+  const lerLinhas = (container, seletorLinha, seletorCelula) =>
+    Array.from(container.querySelectorAll(seletorLinha))
+      .filter(visivel)
+      .map((tr) => Array.from(tr.querySelectorAll(seletorCelula)).map((c) => norm(c.innerText)))
+      .filter((celulas) => celulas.length > 0);
+
+  const temProcessingDate = (linhas) =>
+    linhas.length > 0 && linhas[0].some((c) => c.toLowerCase().includes("processing date"));
+
+  const escopos = Array.from(document.querySelectorAll(".card")).filter(
+    (c) => visivel(c) && norm(c.textContent).toLowerCase().includes("approval history")
+  );
+  escopos.push(document);
+
+  for (const escopo of escopos) {
+    for (const tabela of Array.from(escopo.querySelectorAll("table")).filter(visivel)) {
+      const linhas = lerLinhas(tabela, "tr", "th, td");
+      if (temProcessingDate(linhas)) return linhas;
+    }
+    for (const grid of Array.from(escopo.querySelectorAll('[role="table"], [role="grid"], .rt-table')).filter(visivel)) {
+      const linhas = lerLinhas(
+        grid,
+        '[role="row"], .rt-tr',
+        '[role="columnheader"], [role="cell"], [role="gridcell"], .rt-th, .rt-td'
+      );
+      if (temProcessingDate(linhas)) return linhas;
+    }
+    if (escopo !== document) {
+      const linhasTr = lerLinhas(escopo, "tr", "th, td");
+      if (temProcessingDate(linhasTr)) return linhasTr;
+    }
+  }
+  return [];
+}
+"""
 
 
 # ---------------------------------------------------------------------------
@@ -267,6 +350,84 @@ def parse_progress_state(texto: str) -> str:
     if not match:
         return ""
     return match.group(1).strip().strip("‘’'\"").strip()
+
+
+def parse_qty_review(texto: str) -> int:
+    """
+    Converte o marcador do card 'History of completed review' (ex.: '1st', '2nd') em inteiro.
+    Devolve 0 quando o card/marcador não existe (texto vazio) ou não contém número.
+    """
+    limpo = str(texto or "").strip()
+    if not limpo:
+        return 0
+    match = re.search(r"\d+", limpo)
+    if not match:
+        logger.warning(f"Qty Review sem número reconhecido: {texto!r}")
+        return 0
+    return int(match.group(0))
+
+
+def _interpretar_data_hora(texto: str) -> Optional[datetime]:
+    for formato in _FORMATOS_DATA_HORA:
+        try:
+            return datetime.strptime(texto, formato)
+        except ValueError:
+            continue
+    return None
+
+
+def escolher_request_date(datas: list[str]) -> str:
+    """
+    Escolhe a data/hora mais recente da lista de pedidos de revisão, sem depender da
+    ordem da timeline e devolvendo o texto original sem converter.
+    """
+    nao_vazias = [str(d).strip() for d in (datas or []) if d and str(d).strip()]
+    if not nao_vazias:
+        return ""
+
+    interpretadas: list[tuple[datetime, str]] = []
+    for texto in nao_vazias:
+        dt = _interpretar_data_hora(texto)
+        if dt is not None:
+            interpretadas.append((dt, texto))
+
+    if not interpretadas:
+        logger.warning(f"Nenhuma Request Date pôde ser interpretada como data: {nao_vazias}")
+        return nao_vazias[-1]
+
+    return max(interpretadas, key=lambda item: item[0])[1]
+
+
+def escolher_data_biz_drop(linhas: list[list[str]]) -> str:
+    """
+    Devolve a 'Processing Date' da última linha cujo Status é 'Approver' (com data preenchida)
+    na tabela da aba Contract Biz Drop, localizando as colunas pelo cabeçalho.
+    """
+    if not linhas:
+        return ""
+
+    primeira = [str(c).strip() for c in linhas[0]]
+    col_data = next((i for i, c in enumerate(primeira) if "processing date" in c.lower()), None)
+    col_status = next((i for i, c in enumerate(primeira) if c.lower() == "status"), 0)
+
+    if col_data is not None:
+        linhas_dados = linhas[1:]
+    elif primeira and primeira[0].lower() in ("requester", "approver") and len(primeira) >= 4:
+        col_status = 0
+        col_data = 3
+        linhas_dados = linhas
+    else:
+        return ""
+
+    escolhida = ""
+    for linha in linhas_dados:
+        if len(linha) <= max(col_status, col_data):
+            continue
+        status = str(linha[col_status]).strip()
+        data = str(linha[col_data]).strip()
+        if status.lower() == "approver" and data:
+            escolhida = data
+    return escolhida
 
 
 def filtrar_contratos(df: pd.DataFrame, coluna_filtro: str, filtro: str) -> pd.DataFrame:
@@ -439,19 +600,89 @@ def _navegar_detalhe(detalhe: Page, monitor: _MonitorRede, href: str, timeout: i
         _aguardar_detalhe(detalhe, monitor, timeout, aceita_reaproveitada=False)
 
 
-def _coletar_dados_contrato(page: Page, monitor: _MonitorRede) -> dict:
-    """Extrai todos os campos do contrato da página de detalhe numa única chamada."""
+def _coletar_biz_drop(page: Page, monitor: _MonitorRede, timeout: int = TIMEOUT_PADRAO_MS) -> str:
+    """
+    Navega até Approval History -> Contract Biz Drop, lê a tabela e devolve a data de
+    conclusão do Biz-Drop, voltando sempre para a aba Comment ao final.
+    """
+    try:
+        page.locator(SELETOR_ABA_APPROVAL_HISTORY).first.click(timeout=timeout)
+        _aguardar_quietude(page, monitor, QUIETUDE_DETALHE_MS, ESPERA_MAX_DETALHE_MS)
+
+        page.locator(SELETOR_ABA_CONTRACT_BIZ_DROP).first.click(timeout=timeout)
+        _aguardar_quietude(page, monitor, QUIETUDE_DETALHE_MS, ESPERA_MAX_DETALHE_MS)
+
+        limite = time.monotonic() + timeout / 1000
+        linhas: list[list[str]] = []
+        while time.monotonic() < limite:
+            lidas = _ler_estado(page, _JS_TABELA_BIZ_DROP, None)
+            if lidas and len(lidas) >= 2:
+                linhas = lidas
+                break
+            page.wait_for_timeout(INTERVALO_POLLING_MS)
+        else:
+            raise EsperaEsgotada(f"a tabela de Contract Biz Drop não carregou em {timeout / 1000:.0f}s")
+
+        return escolher_data_biz_drop(linhas)
+    finally:
+        try:
+            page.locator(SELETOR_ABA_COMMENT).first.click(timeout=timeout)
+            _aguardar_quietude(page, monitor, QUIETUDE_DETALHE_MS, ESPERA_MAX_DETALHE_MS)
+        except Exception as exc:
+            logger.debug(f"Não foi possível voltar para a aba Comment: {exc}")
+
+
+def _coletar_dados_contrato(
+    page: Page,
+    monitor: _MonitorRede,
+    timeout: int = TIMEOUT_PADRAO_MS,
+    contract_number: str = "",
+    pasta_erros: Optional[Path] = None,
+    sem_data_biz_drop: Optional[list[str]] = None,
+) -> dict:
+    """Extrai todos os campos do contrato da página de detalhe."""
     _aguardar_quietude(page, monitor, QUIETUDE_DETALHE_MS, ESPERA_MAX_DETALHE_MS)
 
     bruto = page.evaluate(
         _JS_COLETA,
         {"tabela": TABELA_FIELDS, "datas": DATE_FIELDS, "status": STATUS_FIELDS},
     )
+    biz_drop_status = bool(bruto.get("bizdrop", False))
+    biz_drop_completed = ""
+
+    if biz_drop_status:
+        for tentativa in range(1, TENTATIVAS_BIZ_DROP + 1):
+            try:
+                biz_drop_completed = _coletar_biz_drop(page, monitor, timeout)
+                if not biz_drop_completed:
+                    raise ExtractContractError("tabela de Contract Biz Drop sem data de Approver")
+                break
+            except Exception as exc:
+                motivo = str(exc).splitlines()[0] if str(exc) else exc.__class__.__name__
+                if tentativa < TENTATIVAS_BIZ_DROP:
+                    logger.warning(
+                        f"Tentativa {tentativa}/{TENTATIVAS_BIZ_DROP} do Biz-Drop de "
+                        f"{contract_number or 'contrato'} falhou ({motivo}). Tentando novamente."
+                    )
+                else:
+                    logger.warning(
+                        f"Não foi possível obter Biz-Drop Completed de "
+                        f"{contract_number or 'contrato'} após {TENTATIVAS_BIZ_DROP} tentativas: {motivo}"
+                    )
+                    if pasta_erros is not None and contract_number:
+                        _salvar_diagnostico(page, pasta_erros, f"bizdrop_{contract_number}")
+                    if sem_data_biz_drop is not None and contract_number:
+                        sem_data_biz_drop.append(contract_number)
+
     return {
         **bruto["tabela"],
         "Progress State": parse_progress_state(bruto["progress"]),
+        "Request Date": escolher_request_date(bruto.get("request_date", [])),
         **bruto["datas"],
+        "Biz-Drop Completed": biz_drop_completed,
+        "Qty Review": parse_qty_review(bruto.get("qty_review_texto", "")),
         **bruto["status"],
+        "Biz-Drop Status": biz_drop_status,
     }
 
 
@@ -490,6 +721,7 @@ def extrair_contract_review_management(
     coluna_contract_number: str = "Contract Number",
     timeout: int = TIMEOUT_PADRAO_MS,
     tentativas: int = TENTATIVAS_PADRAO,
+    somente_contratos: Optional[list[str]] = None,
 ) -> str:
     """
     Executa a extração detalhada de contratos a partir do relatório consolidado.
@@ -504,6 +736,7 @@ def extrair_contract_review_management(
         coluna_contract_number: Nome da coluna com o número do contrato.
         timeout: Timeout (ms) de cada espera de tela (busca e detalhe).
         tentativas: Quantas vezes tentar cada contrato antes de deixá-lo sem dados.
+        somente_contratos: Lista opcional de números de contrato para filtrar na validação.
 
     Returns:
         Caminho absoluto do arquivo contract_review_management.xlsx.
@@ -534,6 +767,20 @@ def extrair_contract_review_management(
             f"Linhas após filtro '{filtro_departamento}' em '{coluna_filtro}': " f"{len(df_filtrado)} de {len(df)}"
         )
 
+        if somente_contratos:
+            ordem = [c.strip() for c in somente_contratos if c and c.strip()]
+            if ordem:
+                indice_ordem = {c: i for i, c in enumerate(ordem)}
+                col_norm = df_filtrado[coluna_contract_number].astype(str).str.strip()
+                df_filtrado = (
+                    df_filtrado[col_norm.isin(indice_ordem)]
+                    .assign(_ordem=col_norm.map(indice_ordem))
+                    .sort_values("_ordem", kind="mergesort")
+                    .drop(columns=["_ordem"])
+                    .copy()
+                )
+                logger.info(f"Linhas após filtro LMS_SOMENTE_CONTRATOS ({ordem}): {len(df_filtrado)}")
+
         if df_filtrado.empty:
             logger.warning("Nenhuma linha corresponde ao filtro. Encerrando.")
             pd.DataFrame(columns=COLUNAS_FINAIS).to_excel(caminho_destino, index=False)
@@ -544,6 +791,7 @@ def extrair_contract_review_management(
         # ------------------------------------------------------------------
         resultados = []
         falhas: list[str] = []
+        sem_data_biz_drop: list[str] = []
         total = len(df_filtrado)
         inicio_total = time.monotonic()
         pasta_erros = Path(caminho_destino).parent / "erros"
@@ -579,7 +827,14 @@ def extrair_contract_review_management(
                         else:
                             _navegar_detalhe(detalhe, monitor, href, timeout)
 
-                        dados = _coletar_dados_contrato(detalhe, monitor)
+                        dados = _coletar_dados_contrato(
+                            detalhe,
+                            monitor,
+                            timeout=timeout,
+                            contract_number=contract_number,
+                            pasta_erros=pasta_erros,
+                            sem_data_biz_drop=sem_data_biz_drop,
+                        )
                         logger.info(f"{contract_number} coletado em {time.monotonic() - inicio:.1f}s")
                         break
 
@@ -604,6 +859,11 @@ def extrair_contract_review_management(
             monitor.desligar()
 
         logger.info(f"{len(resultados)} contratos processados em {time.monotonic() - inicio_total:.1f}s")
+        if sem_data_biz_drop:
+            logger.warning(
+                f"{len(sem_data_biz_drop)} contrato(s) em Biz-Drop sem data de conclusão: "
+                f"{', '.join(sem_data_biz_drop)}"
+            )
         if falhas:
             logger.warning(f"{len(falhas)} contrato(s) sem dados por falha de carregamento: {', '.join(falhas)}")
             if len(falhas) == len(resultados):

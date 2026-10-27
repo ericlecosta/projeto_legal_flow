@@ -2,7 +2,7 @@
 Modelo da base Ideal Raw: um registro por contrato do Contract Review Management (LMS).
 
 O robô grava e atualiza os contratos a cada execução (upsert pelo número do contrato).
-Como o tratamento da base ainda está em evolução, a linha original da planilha fica em `raw`.
+A linha completa da Base Ideal fica em `raw` (inclui o que não tem coluna própria, como Main Contract Type).
 """
 
 from datetime import date, datetime

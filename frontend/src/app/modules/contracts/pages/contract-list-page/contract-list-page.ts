@@ -126,9 +126,8 @@ export class ContractListPage {
     return TONE_CLASSES[progressTone(state)];
   }
 
-  protected toggleState(state: string | null): void {
-    const value = state ?? '';
-    this.filters.update((f) => ({ ...f, progressState: f.progressState === value ? '' : value }));
+  protected toggleState(state: string): void {
+    this.filters.update((f) => ({ ...f, progressState: f.progressState === state ? '' : state }));
     this.page.set(1);
   }
 

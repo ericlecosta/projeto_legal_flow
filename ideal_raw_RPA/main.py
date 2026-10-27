@@ -4,6 +4,8 @@ Execução do fluxo completo de automação LMS:
 2. Filtro e extração do relatório consolidado de contratos (relatorio_contratos.xlsx).
 3. Extração detalhada de contratos filtrados por departamento
    (contract_review_management.xlsx).
+4. Tratamento para o formato da Base Ideal (base_ideal.xlsx).
+5. Envio dos contratos tratados para o banco do monitor (tela Contratos).
 Cada etapa, os logs e o resultado são registrados na API do monitor (quando API_URL estiver definida).
 
 Variáveis de ambiente:
@@ -13,6 +15,7 @@ Variáveis de ambiente:
     LMS_SUBSIDIARY_CODE, LMS_PERIODO, LMS_FILTRO_DEPARTAMENTO, HEADLESS
     LMS_TIMEOUT_MS    Espera máxima (ms) de cada tela na extração dos contratos (padrão: 90000).
     LMS_TENTATIVAS    Tentativas por contrato antes de deixá-lo sem dados (padrão: 3).
+    LMS_SOMENTE_CONTRATOS  Números de contrato separados por vírgula para filtrar antes da coleta.
 """
 
 import logging
@@ -40,6 +43,7 @@ PERIODO = os.getenv("LMS_PERIODO", "3")
 FILTRO_DEPARTAMENTO = os.getenv("LMS_FILTRO_DEPARTAMENTO", "mao")
 TIMEOUT_MS = int(os.getenv("LMS_TIMEOUT_MS", "90000"))
 TENTATIVAS = int(os.getenv("LMS_TENTATIVAS", "3"))
+SOMENTE_CONTRATOS = [c.strip() for c in os.getenv("LMS_SOMENTE_CONTRATOS", "").split(",") if c.strip()]
 
 
 def _configurar_logging():
@@ -81,6 +85,7 @@ def main() -> int:
             filtro_departamento=FILTRO_DEPARTAMENTO,
             timeout=TIMEOUT_MS,
             tentativas=TENTATIVAS,
+            somente_contratos=SOMENTE_CONTRATOS or None,
         ),
         fechar=fechar,
     )
@@ -97,6 +102,8 @@ def main() -> int:
         _banner("PROCESSO CONCLUÍDO COM SUCESSO!")
         print(f"  Relatório consolidado : {resultado.caminho_relatorio}")
         print(f"  Contract Review Mgmt  : {resultado.caminho_detalhes}")
+        print(f"  Base Ideal            : {resultado.caminho_base_ideal}")
+        print(f"  Contratos             : {resultado.registros}")
         print("=" * 55 + "\n")
         return 0
 

@@ -4,8 +4,10 @@ export type SimulatedFlow = 'login_capture' | 'otp_only';
 /** `contract_extraction` é o fluxo do robô real (ideal_raw_RPA/src/pipeline.py). */
 export type ExecutionFlow = SimulatedFlow | 'contract_extraction';
 
-export type SimulatedStepKey = 'start_session' | 'otp_captcha' | 'sso_login' | 'lms_access' | 'contract_capture';
-export type RpaStepKey = 'lms_login' | 'report_download' | 'contract_details' | 'data_upload';
+export type SimulatedStepKey =
+  'start_session' | 'otp_captcha' | 'sso_login' | 'lms_access' | 'contract_capture';
+export type RpaStepKey =
+  'lms_login' | 'report_download' | 'contract_details' | 'base_ideal' | 'data_upload';
 export type StepKey = SimulatedStepKey | RpaStepKey;
 export type StepStatus = 'success' | 'failed' | 'running' | 'pending' | 'skipped';
 export type LogLevel = 'info' | 'warning' | 'error' | 'success';

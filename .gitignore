@@ -58,3 +58,7 @@ htmlcov/
 # Sistema Operacional
 .DS_Store
 Thumbs.db
+
+# Arquivos de lock do LibreOffice/Excel (planilha aberta)
+.~lock.*#
+~$*.xlsx

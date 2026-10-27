@@ -29,7 +29,12 @@ class ApiFalsa(BaseHTTPRequestHandler):
             self.send_response(401)
             self.end_headers()
             return
-        dados = json.dumps({"id": 42} if self.path == "/api/rpa/executions/" else {}).encode()
+        if self.path == "/api/rpa/executions/":
+            dados = json.dumps({"id": 42}).encode()
+        elif self.path == "/api/rpa/contracts/":
+            dados = json.dumps({"received": len(corpo["contracts"]), "created": 1, "updated": 0}).encode()
+        else:
+            dados = b"{}"
         self.send_response(201 if self.command == "POST" else 200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(dados)))
@@ -58,6 +63,7 @@ def servicos(extrair_detalhes=None):
         extrair_relatorio=lambda page: "relatorio_contratos.xlsx",
         extrair_detalhes=extrair_detalhes or (lambda page, caminho: "contract_review_management.xlsx"),
         fechar=lambda page: None,
+        tratar=lambda caminho: ("base_ideal.xlsx", [{"Contract number": "C1", "Amount": 10.0}]),
     )
 
 
@@ -86,7 +92,10 @@ def test_fluxo_completo_registra_etapas_e_logs_na_api(api):
     assert caminhos[-1] == ("POST", "/api/rpa/executions/42/finish/")
     for key, _ in ETAPAS:
         assert ("PATCH", f"/api/rpa/executions/42/steps/{key}/") in caminhos
-    assert ("PUT", "/api/rpa/contracts/") not in caminhos
+    envio = next(corpo for metodo, caminho, corpo, _ in requisicoes if caminho == "/api/rpa/contracts/")
+    assert envio["executionId"] == 42
+    assert [c["contractNumber"] for c in envio["contracts"]] == ["C1"]
+    assert caminhos.index(("PUT", "/api/rpa/contracts/")) < len(caminhos) - 1
 
     mensagens = [
         log["message"] for _, caminho, corpo, _ in requisicoes if caminho.endswith("/logs/") for log in corpo["logs"]
@@ -95,15 +104,18 @@ def test_fluxo_completo_registra_etapas_e_logs_na_api(api):
     assert "Fluxo concluído com sucesso." in mensagens
 
     fim = requisicoes[-1][2]
-    assert fim == {"status": "success", "records": None, "errorTitle": None, "errorMessage": None}
+    assert fim == {"status": "success", "records": 1, "errorTitle": None, "errorMessage": None}
 
 
-def test_token_errado_nao_impede_o_robo_de_terminar(api):
+def test_token_errado_nao_trava_o_robo_mas_os_contratos_nao_sao_gravados(api):
     url, requisicoes = api
     cliente = MonitorClient(url, "token-errado")
 
     resultado = executar_fluxo(servicos(), cliente)
 
-    # A API recusou a abertura da execução: o robô segue sem reportar e termina normalmente.
-    assert resultado.sucesso
-    assert [caminho for _, caminho, *_ in requisicoes] == ["/api/rpa/executions/"]
+    # A API recusou a abertura da execução: o robô segue sem reportar até o fim, mas como os
+    # contratos também são recusados, o resultado é falha (a planilha tratada fica no disco).
+    assert resultado.status == "failed"
+    assert resultado.erro_titulo == "Falha ao gravar os contratos no banco"
+    assert resultado.caminho_base_ideal == "base_ideal.xlsx"
+    assert [caminho for _, caminho, *_ in requisicoes] == ["/api/rpa/executions/", "/api/rpa/contracts/"]
