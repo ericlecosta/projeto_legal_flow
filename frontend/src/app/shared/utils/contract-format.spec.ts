@@ -1,46 +1,31 @@
 import {
+  buildContractFilterParams,
   buildContractQuery,
-  formatAmount,
-  formatContractPeriod,
+  formatBaseIdealValue,
   formatDateTime,
-  formatIsoDate,
-  progressStateLabel,
 } from './contract-format';
 
-describe('formatIsoDate', () => {
-  it('converte AAAA-MM-DD sem mudar de dia por causa do fuso', () => {
-    expect(formatIsoDate('2026-12-01')).toBe('01/12/2026');
+describe('formatBaseIdealValue', () => {
+  it('mostra Amount como o formato #,##0.00 da planilha, em português', () => {
+    expect(formatBaseIdealValue('Amount', 810184.8)).toBe('810.184,80');
+    expect(formatBaseIdealValue('Amount', 0)).toBe('0,00');
   });
 
-  it('retorna "-" sem data e o próprio texto quando não reconhece', () => {
-    expect(formatIsoDate(null)).toBe('-');
-    expect(formatIsoDate('ontem')).toBe('ontem');
+  it('mantém datas, status e textos como vieram da planilha', () => {
+    expect(formatBaseIdealValue('Start date', '2026-11-01')).toBe('2026-11-01');
+    expect(formatBaseIdealValue('Progress State', 'Legal Review in Progress')).toBe(
+      'Legal Review in Progress',
+    );
+    expect(formatBaseIdealValue('Register the conclusion of contract', 'Expirado')).toBe(
+      'Expirado',
+    );
+    expect(formatBaseIdealValue('Qty Review', 2)).toBe('2');
+    expect(formatBaseIdealValue('Amount', 'a definir')).toBe('a definir');
   });
-});
 
-describe('formatContractPeriod', () => {
-  it('monta o período completo ou parcial', () => {
-    expect(formatContractPeriod('2026-12-01', '2027-11-30')).toBe('01/12/2026 a 30/11/2027');
-    expect(formatContractPeriod('2026-12-01', null)).toBe('desde 01/12/2026');
-    expect(formatContractPeriod(null, '2027-11-30')).toBe('até 30/11/2027');
-    expect(formatContractPeriod(null, null)).toBe('-');
-  });
-});
-
-describe('formatAmount', () => {
-  it('usa o formato brasileiro com a moeda na frente', () => {
-    expect(formatAmount(11145.04, 'USD')).toBe('USD 11.145,04');
-    expect(formatAmount(9240.6, null)).toBe('9.240,60');
-    expect(formatAmount(null, 'BRL')).toBe('-');
-  });
-});
-
-describe('progressStateLabel', () => {
-  it('traduz os status da legenda e mantém os desconhecidos', () => {
-    expect(progressStateLabel('Legal Review in Progress')).toBe('Revisão do jurídico');
-    expect(progressStateLabel('Effective Contract')).toBe('Contrato vigente');
-    expect(progressStateLabel('Novo Status do LMS')).toBe('Novo Status do LMS');
-    expect(progressStateLabel(null)).toBe('Sem status');
+  it('deixa a célula vazia quando a planilha não tem valor', () => {
+    expect(formatBaseIdealValue('Review completed', null)).toBe('');
+    expect(formatBaseIdealValue('Qty Review', undefined)).toBe('');
   });
 });
 
@@ -64,5 +49,14 @@ describe('buildContractQuery', () => {
       page_size: '10',
       progress_state: 'Biz-Drop',
     });
+  });
+});
+
+describe('buildContractFilterParams', () => {
+  it('só os filtros, sem paginação (usado na exportação)', () => {
+    expect(
+      buildContractFilterParams({ search: ' sesi ', progressState: 'Review Completed' }),
+    ).toEqual({ search: 'sesi', progress_state: 'Review Completed' });
+    expect(buildContractFilterParams({ search: '', progressState: '' })).toEqual({});
   });
 });

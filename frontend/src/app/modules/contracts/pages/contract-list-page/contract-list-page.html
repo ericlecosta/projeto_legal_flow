@@ -5,30 +5,89 @@
       Base Ideal Raw capturada pelo robô no Contract Review Management.
     </p>
   </div>
-  @if (summaryData(); as summary) {
-    @if (summary.lastUpdatedAt) {
-      <p class="text-sm text-fg-subtle" data-testid="last-update">
-        Atualizada em
-        <span class="font-mono text-fg-muted">{{ dateTime(summary.lastUpdatedAt) }}</span>
-        @if (summary.lastExecutionId) {
-          ·
-          <a
-            [routerLink]="['/execucoes', summary.lastExecutionId]"
-            class="font-mono text-fg-muted hover:text-fg"
-            >execução #{{ summary.lastExecutionId }}</a
-          >
-        }
-      </p>
+  <div class="flex flex-wrap items-center gap-4">
+    @if (summaryData(); as summary) {
+      @if (summary.lastUpdatedAt) {
+        <p class="text-sm text-fg-subtle" data-testid="last-update">
+          Atualizada em
+          <span class="font-mono text-fg-muted">{{ dateTime(summary.lastUpdatedAt) }}</span>
+          @if (summary.lastExecutionId) {
+            ·
+            <a
+              [routerLink]="['/execucoes', summary.lastExecutionId]"
+              class="font-mono text-fg-muted hover:text-fg"
+              >execução #{{ summary.lastExecutionId }}</a
+            >
+          }
+        </p>
+      }
     }
-  }
+    @if (canExport()) {
+      <div class="relative" data-testid="export-menu">
+        <button
+          type="button"
+          (click)="toggleExportMenu($event)"
+          aria-haspopup="menu"
+          [attr.aria-expanded]="exportMenuOpen()"
+          aria-controls="export-options"
+          class="flex items-center gap-2 rounded-md border border-border-soft bg-surface-elevated px-4 py-2 text-sm font-semibold transition-colors duration-200 hover:bg-border-soft"
+        >
+          <svg
+            class="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+            />
+          </svg>
+          Exportar
+        </button>
+        @if (exportMenuOpen()) {
+          <div
+            id="export-options"
+            role="menu"
+            aria-label="Formatos de exportação"
+            class="absolute right-0 z-20 mt-2 w-64 overflow-hidden rounded-md border border-border-soft bg-surface-elevated py-1 shadow-lg"
+          >
+            @for (option of exportFormats; track option.format) {
+              <a
+                role="menuitem"
+                [href]="exportUrl(option.format)"
+                [attr.download]="''"
+                (click)="exportMenuOpen.set(false)"
+                class="block px-4 py-2 text-sm transition-colors duration-200 hover:bg-border-soft"
+              >
+                <span class="font-semibold">{{ option.label }}</span>
+                <span class="block text-xs text-fg-subtle">{{ option.description }}</span>
+              </a>
+            }
+            <p class="border-t border-border-soft px-4 py-2 text-xs text-fg-subtle">
+              @if (hasActiveFilters()) {
+                Só os contratos do filtro atual ({{ result()?.count ?? 0 | number }}).
+              } @else {
+                Todos os contratos da base.
+              }
+            </p>
+          </div>
+        }
+      </div>
+    }
+  </div>
 </header>
 
 <p
   class="mb-6 shrink-0 rounded-md border border-border-soft bg-surface px-4 py-3 text-sm text-fg-muted"
   role="note"
 >
-  Contratos em Biz-Holding ou Signed Contract Registered não entram na base. Datas que o LMS não
-  informou, ou que o status não usa, aparecem como "-".
+  Mesmas colunas e valores da planilha Base Ideal. Contratos em Biz-Holding ou Signed Contract
+  Registered não entram na base; datas que o LMS não informou, ou que o status não usa, ficam
+  vazias.
 </p>
 
 <!-- Resumo por status: também funciona como filtro -->
@@ -49,7 +108,7 @@
                   : 'border-border-soft bg-surface text-fg-muted hover:text-fg'
               "
             >
-              {{ label(item.progressState) }}
+              {{ item.progressState }}
               <span class="font-mono text-xs text-fg-subtle">{{ item.count | number }}</span>
             </button>
           } @else {
@@ -58,7 +117,7 @@
               class="inline-flex items-center gap-2 rounded-full border border-dashed border-border-soft px-3 py-1 text-sm text-fg-subtle"
               data-testid="no-status-count"
             >
-              {{ label(null) }}
+              (sem Progress State)
               <span class="font-mono text-xs">{{ item.count | number }}</span>
             </span>
           }
@@ -121,13 +180,15 @@
     <table class="w-full border-collapse text-left">
       <thead>
         <tr class="border-b border-border-soft bg-surface">
-          <th scope="col" class="eyebrow px-4 py-4 text-fg-subtle!">Contrato</th>
-          <th scope="col" class="eyebrow px-4 py-4 text-fg-subtle!">Contraparte</th>
-          <th scope="col" class="eyebrow px-4 py-4 text-fg-subtle!">Status</th>
-          <th scope="col" class="eyebrow px-4 py-4 text-fg-subtle!">Revisor</th>
-          <th scope="col" class="eyebrow px-4 py-4 text-fg-subtle!">Solicitado em</th>
-          <th scope="col" class="eyebrow px-4 py-4 text-fg-subtle!">Vigência</th>
-          <th scope="col" class="eyebrow px-4 py-4 text-right text-fg-subtle!">Valor</th>
+          @for (column of columns; track column; let first = $first) {
+            <th
+              scope="col"
+              class="px-4 py-4 text-xs font-semibold whitespace-nowrap text-fg-subtle"
+              [class]="headerClass(column, first)"
+            >
+              {{ column }}
+            </th>
+          }
         </tr>
       </thead>
       <tbody class="divide-y divide-border-soft">
@@ -135,7 +196,7 @@
           @case ('loading') {
             @for (i of [1, 2, 3, 4, 5]; track i) {
               <tr>
-                <td colspan="7" class="px-4 py-4">
+                <td [attr.colspan]="columns.length" class="px-4 py-4">
                   <div class="h-5 animate-pulse rounded-sm bg-surface"></div>
                 </td>
               </tr>
@@ -143,7 +204,11 @@
           }
           @case ('error') {
             <tr>
-              <td colspan="7" class="px-4 py-12 text-center text-sm text-danger" role="alert">
+              <td
+                [attr.colspan]="columns.length"
+                class="px-4 py-12 text-center text-sm text-danger"
+                role="alert"
+              >
                 Não foi possível carregar os contratos.
               </td>
             </tr>
@@ -151,54 +216,33 @@
           @case ('ready') {
             @for (contract of result()!.results; track contract.id) {
               <tr
-                class="transition-colors duration-200 hover:bg-surface-elevated"
+                class="group transition-colors duration-200 hover:bg-surface-elevated"
                 data-testid="contract-row"
               >
-                <td class="max-w-[14rem] px-4 py-4">
-                  <p class="truncate text-sm font-semibold" [title]="contract.contractName ?? ''">
-                    {{ contract.contractName ?? '-' }}
-                  </p>
-                  <p
-                    class="mt-1 truncate font-mono text-xs text-fg-subtle"
-                    [title]="contract.contractType ?? ''"
+                @for (column of columns; track column; let first = $first) {
+                  @let text = cell(column, contract.baseIdeal[column]);
+                  <td
+                    class="px-4 py-3 text-sm whitespace-nowrap"
+                    [class]="cellClass(column, first)"
                   >
-                    {{ contract.contractNumber }}
-                    @if (contract.contractType) {
-                      · {{ contract.contractType }}
+                    @if (column === 'Progress State' && text) {
+                      <span
+                        class="inline-flex w-max items-center rounded-md border px-2.5 py-1 text-xs font-semibold"
+                        [class]="tone(text)"
+                        >{{ text }}</span
+                      >
+                    } @else {
+                      <span [attr.title]="text.length > 30 ? text : null">{{ text }}</span>
                     }
-                  </p>
-                </td>
-                <td
-                  class="max-w-[10rem] truncate px-4 py-4 text-sm text-fg-muted"
-                  [title]="contract.counterparty ?? ''"
-                >
-                  {{ contract.counterparty ?? '-' }}
-                </td>
-                <td class="px-4 py-4">
-                  <span
-                    class="inline-flex w-max items-center rounded-md border px-2.5 py-1 text-xs font-semibold"
-                    [class]="tone(contract.progressState)"
-                    [title]="contract.progressState ?? ''"
-                  >
-                    {{ label(contract.progressState) }}
-                  </span>
-                </td>
-                <td class="px-4 py-4 text-sm whitespace-nowrap text-fg-muted">
-                  {{ contract.legalReviewer ?? '-' }}
-                </td>
-                <td class="px-4 py-4 font-mono text-sm whitespace-nowrap text-fg-muted">
-                  {{ date(contract.reviewRequestedAt) }}
-                </td>
-                <td class="px-4 py-4 font-mono text-sm whitespace-nowrap text-fg-muted">
-                  {{ period(contract.periodStart, contract.periodEnd) }}
-                </td>
-                <td class="px-4 py-4 text-right font-mono text-sm whitespace-nowrap">
-                  {{ amount(contract.amount, contract.currency) }}
-                </td>
+                  </td>
+                }
               </tr>
             } @empty {
               <tr>
-                <td colspan="7" class="px-4 py-12 text-center text-sm text-fg-subtle">
+                <td
+                  [attr.colspan]="columns.length"
+                  class="px-4 py-12 text-center text-sm text-fg-subtle"
+                >
                   @if (hasActiveFilters()) {
                     Nenhum contrato encontrado para os filtros selecionados.
                   } @else {

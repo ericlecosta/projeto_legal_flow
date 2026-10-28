@@ -206,6 +206,8 @@ class Contract(ContractIn):
     id: int
     last_execution_id: int | None
     updated_at: datetime
+    # Linha da Base Ideal (colunas e valores da planilha), na ordem de app/services/base_ideal.py
+    base_ideal: dict[str, str | int | float | None] = {}
 
 
 class ProgressStateCount(CamelModel):

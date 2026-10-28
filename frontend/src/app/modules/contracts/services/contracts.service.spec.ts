@@ -38,6 +38,17 @@ describe('ContractsService (integração com HttpClient)', () => {
     expect(count).toBe(1);
   });
 
+  it('monta o link de exportação com o formato e os filtros da tela, sem paginação', () => {
+    expect(
+      service.exportUrl('xlsx', { search: ' sesi & cia ', progressState: 'Review Completed' }),
+    ).toBe(
+      '/api/contracts/export/?format=xlsx&search=sesi+%26+cia&progress_state=Review+Completed',
+    );
+    expect(service.exportUrl('pdf', { search: '', progressState: '' })).toBe(
+      '/api/contracts/export/?format=pdf',
+    );
+  });
+
   it('não envia filtros vazios', () => {
     service.list({ search: '  ', progressState: '' }, 1, 20).subscribe();
     const req = http.expectOne((r) => r.url === '/api/contracts/');

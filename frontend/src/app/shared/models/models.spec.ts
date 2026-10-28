@@ -1,4 +1,4 @@
-import { PROGRESS_STATE_LABELS, progressTone } from './contract.model';
+import { BASE_IDEAL_COLUMNS, progressTone } from './contract.model';
 import { FLOW_LABELS } from './execution.model';
 
 describe('progressTone', () => {
@@ -15,9 +15,12 @@ describe('progressTone', () => {
   });
 });
 
-describe('legendas', () => {
-  it('cobre os 17 status da Base Ideal', () => {
-    expect(Object.keys(PROGRESS_STATE_LABELS)).toHaveLength(17);
+describe('Base Ideal', () => {
+  it('tem as 23 colunas da planilha, sem repetição', () => {
+    expect(BASE_IDEAL_COLUMNS).toHaveLength(23);
+    expect(new Set(BASE_IDEAL_COLUMNS).size).toBe(23);
+    expect(BASE_IDEAL_COLUMNS[0]).toBe('Contract number');
+    expect(BASE_IDEAL_COLUMNS.at(-1)).toBe('Amount');
   });
 
   it('tem nome para o fluxo do robô real', () => {

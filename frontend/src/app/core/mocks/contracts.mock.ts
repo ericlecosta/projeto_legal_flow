@@ -1,9 +1,35 @@
-import { Contract, ContractFilters, ContractSummary } from '../../shared/models/contract.model';
+import {
+  BASE_IDEAL_COLUMNS,
+  BaseIdealValue,
+  Contract,
+  ContractFilters,
+  ContractSummary,
+} from '../../shared/models/contract.model';
 import { Page } from '../../shared/models/execution.model';
+
+/** Linha da Base Ideal montada com os campos do contrato (a API faz o mesmo a partir do raw). */
+function baseIdeal(c: Contract): Record<string, BaseIdealValue> {
+  const values: Record<string, BaseIdealValue> = {
+    'Contract number': c.contractNumber,
+    Counterparty: c.counterparty,
+    'Contract name': c.contractName,
+    'Contract type': c.contractType,
+    'The person in charge': c.requester,
+    'Department of the person in charge': c.department,
+    'Progress State': c.progressState,
+    'Start date': c.periodStart,
+    'End date': c.periodEnd,
+    'Request Date': c.reviewRequestedAt,
+    Reviewer: c.legalReviewer,
+    'Contract currency': c.currency,
+    Amount: c.amount,
+  };
+  return Object.fromEntries(BASE_IDEAL_COLUMNS.map((column) => [column, values[column] ?? null]));
+}
 
 /** Contratos fictícios para trabalhar no front sem a API (environment.useMocks). */
 function contract(id: number, overrides: Partial<Contract>): Contract {
-  return {
+  const base: Contract = {
     id,
     contractNumber: `C20268${String(14000 + id).padStart(5, '0')}`,
     managementNumber: null,
@@ -31,8 +57,10 @@ function contract(id: number, overrides: Partial<Contract>): Contract {
     raw: {},
     lastExecutionId: 1043,
     updatedAt: '2026-10-15T09:12:00-04:00',
+    baseIdeal: {},
     ...overrides,
   };
+  return { ...base, baseIdeal: baseIdeal(base) };
 }
 
 export const CONTRACTS_MOCK: Contract[] = [

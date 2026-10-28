@@ -26,10 +26,56 @@ export interface Contract {
   amount: number | null;
   flags: Record<string, boolean>;
   raw: Record<string, string | null>;
+  /** Linha da Base Ideal: colunas e valores da planilha (BASE_IDEAL_COLUMNS). */
+  baseIdeal: Record<string, BaseIdealValue>;
   lastExecutionId: number | null;
   /** ISO 8601 */
   updatedAt: string;
 }
+
+export type BaseIdealValue = string | number | null;
+
+/**
+ * Colunas da Base Ideal, com os mesmos nomes e na mesma ordem da planilha do robô
+ * (backend/app/services/base_ideal.py).
+ */
+export const BASE_IDEAL_COLUMNS = [
+  'Contract number',
+  'Counterparty',
+  'Contract name',
+  'Main Contract Type',
+  'Contract type',
+  'The person in charge',
+  'Department of the person in charge',
+  'Progress State',
+  'Start date',
+  'End date',
+  'Request Date',
+  'Request Legal Review',
+  'Review completed',
+  'Agreement request',
+  'Agreement has been completed',
+  'Approval request',
+  'Approval request completed',
+  'Register the conclusion of contract',
+  'Biz-Drop Completed',
+  'Qty Review',
+  'Reviewer',
+  'Contract currency',
+  'Amount',
+] as const;
+
+export type BaseIdealColumn = (typeof BASE_IDEAL_COLUMNS)[number];
+
+/** Formatos da exportação (GET /api/contracts/export/?format=). */
+export type ExportFormat = 'xlsx' | 'xls' | 'csv' | 'pdf';
+
+export const EXPORT_FORMATS: { format: ExportFormat; label: string; description: string }[] = [
+  { format: 'xlsx', label: 'Excel (.xlsx)', description: 'Excel 2007 ou mais novo' },
+  { format: 'xls', label: 'Excel 97-2003 (.xls)', description: 'Formato antigo do Excel' },
+  { format: 'csv', label: 'CSV (.csv)', description: 'Separado por ponto e vírgula' },
+  { format: 'pdf', label: 'PDF (.pdf)', description: 'Para imprimir ou compartilhar' },
+];
 
 export interface ContractFilters {
   search: string;
@@ -49,27 +95,6 @@ export interface ContractSummary {
   lastUpdatedAt: string | null;
   lastExecutionId: number | null;
 }
-
-/** Tradução dos status do LMS (aba "Legenda" da Base Ideal). */
-export const PROGRESS_STATE_LABELS: Record<string, string> = {
-  'Approval Completed': 'Aprovação concluída',
-  'Approval for the Biz-Drop': 'Aprovação da desistência',
-  'Approval Rejected': 'Aprovação rejeitada',
-  'Biz-Drop': 'Desistência do contrato',
-  'Biz-Holding': 'Suspensão do contrato',
-  'Contract Expired': 'Vigência expirada',
-  'Effective Contract': 'Contrato vigente',
-  'Legal Comments Provided': 'Comentários do jurídico',
-  'Legal Review in Progress': 'Revisão do jurídico',
-  'Legal Team Consent Completed': 'Consenso do jurídico concluído',
-  'Legal Team Consent in Progress': 'Consenso do jurídico',
-  'Pending Assignment': 'Pendente de revisor',
-  'Processing Approval for Execution': 'Aprovação em andamento',
-  'Request for Consent Rejected': 'Consenso rejeitado',
-  'Request Temporarily Saved': 'Rascunho',
-  'Review Completed': 'Revisão concluída',
-  'Signed Contract Registered': 'Contrato registrado',
-};
 
 export type ProgressTone = 'success' | 'warning' | 'danger' | 'neutral' | 'info';
 

@@ -4,7 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
 import { CONTRACTS_MOCK } from '../../../../core/mocks/contracts.mock';
-import { ContractSummary } from '../../../../shared/models/contract.model';
+import { BASE_IDEAL_COLUMNS, ContractSummary } from '../../../../shared/models/contract.model';
 import { ContractListPage } from './contract-list-page';
 
 const SUMMARY: ContractSummary = {
@@ -57,16 +57,28 @@ describe('ContractListPage', () => {
     const chips = [...el.querySelectorAll('[role="group"] button')].map((b) =>
       b.textContent!.replace(/\s+/g, ' ').trim(),
     );
-    expect(chips).toEqual(['Revisão do jurídico 3', 'Contrato vigente 1']);
+    expect(chips).toEqual(['Legal Review in Progress 3', 'Effective Contract 1']);
     expect(el.querySelector('[data-testid="last-update"]')!.textContent).toContain(
       'execução #1043',
     );
 
+    // Cabeçalho e valores iguais aos da planilha Base Ideal
+    const headers = [...el.querySelectorAll('thead th')].map((th) => th.textContent!.trim());
+    expect(headers).toEqual([...BASE_IDEAL_COLUMNS]);
+
     const rows = el.querySelectorAll('[data-testid="contract-row"]');
     expect(rows).toHaveLength(2);
-    expect(rows[1].textContent).toContain('Norte Tech Engenharia Ltda');
-    expect(rows[1].textContent).toContain('USD 11.145,04');
-    expect(rows[1].textContent).toContain('01/12/2026 a 30/11/2027');
+    const cells = Object.fromEntries(
+      [...rows[1].querySelectorAll('td')].map((td, i) => [headers[i], td.textContent!.trim()]),
+    );
+    expect(cells['Contract number']).toBe(CONTRACTS_MOCK[1].contractNumber);
+    expect(cells['Counterparty']).toBe('Norte Tech Engenharia Ltda');
+    expect(cells['Progress State']).toBe('Effective Contract');
+    expect(cells['Start date']).toBe('2026-12-01');
+    expect(cells['End date']).toBe('2027-11-30');
+    expect(cells['Contract currency']).toBe('USD');
+    expect(cells['Amount']).toBe('11.145,04');
+    expect(cells['Review completed']).toBe('');
     expect(el.textContent).toContain('Mostrando 1-2 de 2 contratos');
   });
 
@@ -84,7 +96,7 @@ describe('ContractListPage', () => {
     expect(el.querySelector('[aria-pressed="true"]')).toBeNull();
     expect(
       el.querySelector('[data-testid="no-status-count"]')!.textContent!.replace(/\s+/g, ' ').trim(),
-    ).toBe('Sem status 1');
+    ).toBe('(sem Progress State) 1');
   });
 
   it('filtra pelo status ao clicar no resumo e limpa o filtro', async () => {
@@ -101,7 +113,9 @@ describe('ContractListPage', () => {
     filtered[0].flush({ count: 1, results: [CONTRACTS_MOCK[2]] });
     await settle();
 
-    expect(el.querySelector('[aria-pressed="true"]')!.textContent).toContain('Revisão do jurídico');
+    expect(el.querySelector('[aria-pressed="true"]')!.textContent).toContain(
+      'Legal Review in Progress',
+    );
     const clear = [...el.querySelectorAll('button')].find((b) =>
       b.textContent!.includes('Limpar filtros'),
     )!;
@@ -110,6 +124,52 @@ describe('ContractListPage', () => {
     const cleared = listRequests();
     expect(cleared[0].request.params.has('progress_state')).toBe(false);
     cleared[0].flush({ count: 4, results: CONTRACTS_MOCK });
+  });
+
+  it('exporta nos formatos da planilha com os filtros da tela', async () => {
+    await render();
+    http.expectOne('/api/contracts/summary/').flush(SUMMARY);
+    listRequests()[0].flush({ count: 4, results: CONTRACTS_MOCK });
+    await settle();
+
+    const toggle = el.querySelector('[data-testid="export-menu"] button') as HTMLButtonElement;
+    expect(el.querySelector('[role="menu"]')).toBeNull();
+    toggle.click();
+    await settle();
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    const links = () =>
+      [...el.querySelectorAll('[role="menuitem"]')].map((a) => a.getAttribute('href'));
+    expect(links()).toEqual([
+      '/api/contracts/export/?format=xlsx',
+      '/api/contracts/export/?format=xls',
+      '/api/contracts/export/?format=csv',
+      '/api/contracts/export/?format=pdf',
+    ]);
+    expect(el.querySelector('[role="menu"]')!.textContent).toContain('Todos os contratos da base');
+
+    // Com um status selecionado, o arquivo traz só os contratos desse filtro
+    (el.querySelector('[role="group"] button') as HTMLButtonElement).click();
+    await settle();
+    listRequests()[0].flush({ count: 1, results: [CONTRACTS_MOCK[2]] });
+    await settle();
+    toggle.click();
+    await settle();
+    expect(links()[0]).toBe(
+      '/api/contracts/export/?format=xlsx&progress_state=Legal+Review+in+Progress',
+    );
+    expect(el.querySelector('[role="menu"]')!.textContent).toContain('filtro atual (1)');
+
+    // Escolher um formato fecha o menu; Esc e clique fora também
+    (el.querySelector('[role="menuitem"]') as HTMLAnchorElement).dispatchEvent(
+      new MouseEvent('click', { cancelable: true }),
+    );
+    await settle();
+    expect(el.querySelector('[role="menu"]')).toBeNull();
+    toggle.click();
+    await settle();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await settle();
+    expect(el.querySelector('[role="menu"]')).toBeNull();
   });
 
   it('busca depois que a pessoa para de digitar', async () => {
