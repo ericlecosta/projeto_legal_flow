@@ -1,5 +1,15 @@
-<a routerLink="/execucoes" class="mb-3 flex w-max items-center gap-2 text-sm font-semibold text-fg-subtle transition-colors duration-200 hover:text-fg">
-  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+<a
+  routerLink="/execucoes"
+  class="mb-3 flex w-max items-center gap-2 text-sm font-semibold text-fg-subtle transition-colors duration-200 hover:text-fg"
+>
+  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      stroke-width="2"
+      d="M10 19l-7-7m0 0l7-7m-7 7h18"
+    />
+  </svg>
   Voltar para Execuções
 </a>
 
@@ -24,165 +34,455 @@
     @let e = execution()!;
 
     <!-- Cabeçalho e ações -->
-    <header class="mb-6 flex items-start justify-between gap-4">
-      <h1 class="flex items-center gap-3 text-3xl font-semibold tracking-tight">
+    <header class="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <h1 class="flex flex-wrap items-center gap-3 text-3xl font-semibold tracking-tight">
         Execução #{{ e.id }}
         <app-status-badge [status]="e.status" size="lg" />
       </h1>
-      <div class="flex shrink-0 gap-3">
+      <div class="flex flex-wrap gap-3">
         <button
           type="button"
           (click)="exportLogs()"
           [disabled]="e.logs.length === 0"
+          title="Baixa o registro completo da execução, para enviar ao time de desenvolvimento"
           class="flex items-center gap-2 rounded-md border border-border-soft bg-surface px-4 py-2 text-sm font-semibold transition-colors duration-200 hover:bg-surface-elevated disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <svg class="h-4 w-4 text-fg-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-          Exportar Logs
+          <svg
+            class="h-4 w-4 text-fg-muted"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+            />
+          </svg>
+          Baixar registro
         </button>
-        <button
-          type="button"
-          (click)="stop()"
-          [disabled]="e.status !== 'running' || stopping()"
-          [title]="e.status === 'running' ? 'Interromper a execução em andamento' : 'A execução já foi encerrada'"
-          class="flex items-center gap-2 rounded-md border border-border-soft bg-surface px-4 py-2 text-sm font-semibold transition-colors duration-200 hover:bg-surface-elevated disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <span class="h-3 w-3 rounded-xs bg-danger" aria-hidden="true"></span>
-          {{ stopping() && e.status === 'running' ? 'Interrompendo...' : 'Interromper' }}
-        </button>
+        @if (e.status === 'running') {
+          <button
+            type="button"
+            (click)="stop()"
+            [disabled]="stopping()"
+            title="Interrompe a execução em andamento"
+            class="flex items-center gap-2 rounded-md border border-danger/40 bg-surface px-4 py-2 text-sm font-semibold text-danger transition-colors duration-200 hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <span class="h-3 w-3 rounded-xs bg-danger" aria-hidden="true"></span>
+            {{ stopping() ? 'Parando...' : 'Parar execução' }}
+          </button>
+        }
       </div>
     </header>
 
-    <!-- Metadados -->
-    <dl class="mb-8 flex flex-wrap gap-8 border-b border-border-soft pb-6 font-mono text-sm text-fg-muted">
+    <!-- Dados da execução -->
+    <dl
+      class="mb-6 flex flex-wrap gap-x-8 gap-y-4 border-b border-border-soft pb-6 text-sm text-fg-muted"
+    >
       <div class="flex flex-col gap-1">
-        <dt class="eyebrow text-fg-faint!">Fluxo</dt>
+        <dt class="text-xs font-semibold text-fg-faint">O que o robô faz</dt>
         <dd class="text-fg">{{ flowLabels[e.flow] }}</dd>
       </div>
-      <div class="w-px bg-border-soft" aria-hidden="true"></div>
       <div class="flex flex-col gap-1">
-        <dt class="eyebrow text-fg-faint!">Início</dt>
+        <dt class="text-xs font-semibold text-fg-faint">Iniciada</dt>
+        <dd>{{ e.trigger === 'manual' ? 'Pelo painel' : 'Pelo agendamento' }}</dd>
+      </div>
+      <div class="flex flex-col gap-1">
+        <dt class="text-xs font-semibold text-fg-faint">Começou</dt>
         <dd>{{ e.startedAt | relativeDateTime }}</dd>
       </div>
-      <div class="w-px bg-border-soft" aria-hidden="true"></div>
       <div class="flex flex-col gap-1">
-        <dt class="eyebrow text-fg-faint!">Fim</dt>
-        <dd>{{ e.finishedAt | relativeDateTime }}</dd>
+        <dt class="text-xs font-semibold text-fg-faint">Terminou</dt>
+        <dd>{{ e.finishedAt ? (e.finishedAt | relativeDateTime) : 'Ainda em andamento' }}</dd>
       </div>
-      <div class="w-px bg-border-soft" aria-hidden="true"></div>
-      <div class="flex flex-col gap-1">
-        <dt class="eyebrow text-fg-faint!">Duração</dt>
-        <dd>{{ e.durationSeconds | duration }}</dd>
-      </div>
+      @if (e.durationSeconds != null) {
+        <div class="flex flex-col gap-1">
+          <dt class="text-xs font-semibold text-fg-faint">Tempo total</dt>
+          <dd>{{ duration(e.durationSeconds) }}</dd>
+        </div>
+      }
     </dl>
 
-    <div class="grid min-h-0 flex-1 grid-cols-12 gap-8">
-      <!-- Linha do tempo -->
-      <section class="col-span-12 overflow-y-auto rounded-xl border border-border-soft bg-surface p-6 lg:col-span-4">
-        <h2 class="eyebrow mb-6">Linha do Tempo</h2>
-        <ol class="relative ml-2 space-y-8 border-l border-border-soft pl-4">
+    <!-- Resumo em linguagem simples -->
+    @switch (e.status) {
+      @case ('running') {
+        <section
+          class="mb-6 rounded-lg border border-l-4 border-info bg-info/10 p-5"
+          aria-live="polite"
+          data-testid="summary"
+        >
+          <h2 class="text-base font-semibold text-info">O robô está trabalhando</h2>
+          <p class="mt-1 text-sm">
+            @if (currentStep(); as step) {
+              Agora: {{ step.label }}. {{ stepDescriptions[step.key] }}
+            } @else {
+              Aguardando o robô começar. Isso costuma levar poucos segundos.
+            }
+          </p>
+          @if (progress(); as p) {
+            @if (
+              currentStep()?.key === 'contract_details' || currentStep()?.key === 'contract_capture'
+            ) {
+              <div class="mt-4">
+                <div class="mb-1 flex justify-between text-xs text-fg-muted">
+                  <span>Contratos conferidos</span>
+                  <span>{{ p.done }} de {{ p.total }} ({{ percent(p.done, p.total) }}%)</span>
+                </div>
+                <div
+                  class="h-2 overflow-hidden rounded-full bg-surface"
+                  role="progressbar"
+                  [attr.aria-valuenow]="p.done"
+                  aria-valuemin="0"
+                  [attr.aria-valuemax]="p.total"
+                  aria-label="Contratos conferidos"
+                >
+                  <div
+                    class="h-full rounded-full bg-info transition-all duration-500"
+                    [style.width.%]="percent(p.done, p.total)"
+                  ></div>
+                </div>
+              </div>
+            }
+          }
+          <p class="mt-3 text-xs text-fg-subtle">
+            Esta página se atualiza sozinha. Você pode sair e voltar depois.
+          </p>
+        </section>
+      }
+      @case ('failed') {
+        @if (error(); as err) {
+          <section
+            class="mb-6 rounded-lg border border-l-4 border-danger bg-danger/10 p-5"
+            role="alert"
+            data-testid="summary"
+          >
+            <h2 class="flex items-center gap-2 text-base font-semibold text-danger">
+              <svg
+                class="h-5 w-5 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+              {{ err.title }}
+            </h2>
+            <p class="mt-2 text-sm">{{ err.explanation }}</p>
+            <p class="mt-2 text-sm">
+              <span class="font-semibold">O que fazer:</span> {{ err.action }}
+            </p>
+            <div class="mt-3 flex flex-wrap items-center gap-4">
+              @if (err.technical.screenshotUrl) {
+                <a
+                  [href]="err.technical.screenshotUrl"
+                  target="_blank"
+                  rel="noopener"
+                  class="text-xs font-semibold text-danger underline"
+                  >Ver imagem da tela no momento do erro</a
+                >
+              }
+              <details class="text-xs text-fg-subtle">
+                <summary class="cursor-pointer font-semibold">
+                  Detalhe técnico (para o time de desenvolvimento)
+                </summary>
+                <p class="mt-2 font-mono whitespace-pre-wrap text-fg-muted">
+                  {{ err.technical.title }}: {{ err.technical.message }}
+                </p>
+              </details>
+            </div>
+          </section>
+        } @else {
+          <section
+            class="mb-6 rounded-lg border border-l-4 border-danger bg-danger/10 p-5"
+            role="alert"
+            data-testid="summary"
+          >
+            <h2 class="text-base font-semibold text-danger">A execução não terminou</h2>
+            <p class="mt-1 text-sm">
+              Veja abaixo o que aconteceu. Se precisar de ajuda, baixe o registro e envie ao time de
+              desenvolvimento.
+            </p>
+          </section>
+        }
+      }
+      @default {
+        <section
+          class="mb-6 rounded-lg border border-l-4 p-5"
+          [class]="
+            e.status === 'success' && warnings() === 0
+              ? 'border-success bg-success/10'
+              : 'border-warning bg-warning/10'
+          "
+          data-testid="summary"
+        >
+          <h2
+            class="text-base font-semibold"
+            [class]="e.status === 'success' && warnings() === 0 ? 'text-success' : 'text-warning'"
+          >
+            {{
+              e.status === 'atypical'
+                ? 'Concluída, mas demorou mais que o normal'
+                : warnings() > 0
+                  ? 'Execução concluída, com avisos'
+                  : 'Execução concluída com sucesso'
+            }}
+          </h2>
+          <p class="mt-1 text-sm">
+            @if (e.records != null) {
+              {{ e.records }}
+              {{ e.records === 1 ? 'contrato atualizado' : 'contratos atualizados' }} no painel.
+            }
+            @if (warnings() > 0) {
+              Houve {{ warnings() }} {{ warnings() === 1 ? 'aviso' : 'avisos' }} durante a execução:
+              veja abaixo.
+            } @else if (e.records == null) {
+              Tudo certo, sem avisos.
+            }
+          </p>
+        </section>
+      }
+    }
+
+    <div class="grid grid-cols-1 gap-8 lg:min-h-0 lg:flex-1 lg:grid-cols-12">
+      <!-- Etapas -->
+      <section
+        class="overflow-y-auto rounded-xl border border-border-soft bg-surface p-6 lg:col-span-4"
+      >
+        <h2 class="mb-6 text-base font-semibold">Etapas</h2>
+        @if (e.steps.length === 0) {
+          <p class="text-sm text-fg-subtle">As etapas aparecem quando o robô começar.</p>
+        }
+        <ol class="relative ml-2 space-y-6 border-l border-border-soft pl-4">
           @for (step of e.steps; track step.key) {
-            <li class="relative" [class.opacity-40]="step.status === 'skipped' || step.status === 'pending'">
+            <li
+              class="relative"
+              [class.opacity-50]="step.status === 'skipped' || step.status === 'pending'"
+            >
               @switch (step.status) {
                 @case ('success') {
-                  <span class="absolute -left-[25px] flex h-4 w-4 items-center justify-center rounded-full border-2 border-success bg-canvas text-success" aria-hidden="true">
-                    <svg class="h-2.5 w-2.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" clip-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" /></svg>
+                  <span
+                    class="absolute -left-[25px] flex h-4 w-4 items-center justify-center rounded-full border-2 border-success bg-canvas text-success"
+                    aria-hidden="true"
+                  >
+                    <svg class="h-2.5 w-2.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path
+                        fill-rule="evenodd"
+                        clip-rule="evenodd"
+                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                      />
+                    </svg>
                   </span>
-                  <p class="text-sm font-semibold">{{ step.label }}</p>
-                  <p class="mt-1 font-mono text-xs text-fg-subtle">Duração: {{ step.durationSeconds | stepDuration }}</p>
                 }
                 @case ('failed') {
-                  <span class="absolute -left-[25px] flex h-4 w-4 items-center justify-center rounded-full bg-danger text-on-primary shadow-[0_0_12px_var(--danger)] ring-4 ring-surface" aria-hidden="true">
-                    <svg class="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12" /></svg>
+                  <span
+                    class="absolute -left-[25px] flex h-4 w-4 items-center justify-center rounded-full bg-danger text-on-primary ring-4 ring-surface"
+                    aria-hidden="true"
+                  >
+                    <svg class="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="3"
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
                   </span>
-                  <p class="text-sm font-semibold text-danger">{{ step.label }}</p>
-                  <p class="mt-1 font-mono text-xs text-danger opacity-80">Falhou após {{ step.durationSeconds | stepDuration }}</p>
                 }
                 @case ('running') {
-                  <span class="absolute -left-[25px] h-4 w-4 animate-pulse rounded-full border-2 border-info bg-canvas" aria-hidden="true"></span>
-                  <p class="text-sm font-semibold text-info">{{ step.label }}</p>
-                  <p class="mt-1 font-mono text-xs text-fg-subtle">Em andamento…</p>
+                  <span
+                    class="absolute -left-[25px] h-4 w-4 animate-pulse rounded-full border-2 border-info bg-canvas"
+                    aria-hidden="true"
+                  ></span>
                 }
                 @default {
-                  <span class="absolute -left-[25px] h-4 w-4 rounded-full border-2 border-border-soft bg-surface" aria-hidden="true"></span>
-                  <p class="text-sm font-semibold text-fg-muted">{{ step.label }}</p>
-                  <p class="mt-1 font-mono text-xs text-fg-faint">{{ step.status === 'skipped' ? 'Cancelado' : 'Pendente' }}</p>
+                  <span
+                    class="absolute -left-[25px] h-4 w-4 rounded-full border-2 border-border-soft bg-surface"
+                    aria-hidden="true"
+                  ></span>
                 }
               }
+              <p
+                class="text-sm font-semibold"
+                [class.text-danger]="step.status === 'failed'"
+                [class.text-info]="step.status === 'running'"
+              >
+                {{ step.label }}
+              </p>
+              <p class="mt-0.5 text-xs text-fg-subtle">{{ stepDescriptions[step.key] }}</p>
+              <p
+                class="mt-1 text-xs font-semibold"
+                [class]="
+                  step.status === 'failed'
+                    ? 'text-danger'
+                    : step.status === 'running'
+                      ? 'text-info'
+                      : 'text-fg-muted'
+                "
+                data-testid="step-status"
+              >
+                {{ stepStatus(step) }}
+              </p>
             </li>
           }
         </ol>
       </section>
 
-      <div class="col-span-12 flex min-h-0 flex-col gap-6 lg:col-span-8">
-        <!-- Diagnóstico rápido -->
-        @if (e.error; as error) {
-          <section class="flex items-start justify-between gap-4 rounded-lg border border-l-4 border-danger bg-danger/10 p-5" role="alert">
-            <div>
-              <h2 class="mb-1 flex items-center gap-2 text-sm font-bold text-danger">
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                {{ error.title }}
-              </h2>
-              <p class="text-sm">{{ error.message }}</p>
-            </div>
-            @if (error.screenshotUrl) {
-              <a
-                [href]="error.screenshotUrl"
-                target="_blank"
-                rel="noopener"
-                class="mt-1 shrink-0 rounded-sm border border-danger bg-surface px-3 py-1.5 text-xs font-semibold text-danger transition-colors duration-200 hover:bg-danger hover:text-on-primary"
-              >Ver Screenshot</a>
-            } @else {
-              <span class="mt-1 shrink-0 cursor-not-allowed rounded-sm border border-danger/40 bg-surface px-3 py-1.5 text-xs font-semibold text-danger opacity-50" title="Nenhum screenshot disponível">
-                Ver Screenshot
-              </span>
-            }
-          </section>
-        }
-
-        <!-- Console de logs -->
-        <section class="flex min-h-[350px] flex-1 flex-col overflow-hidden rounded-xl border border-border-soft bg-console">
-          <div class="flex shrink-0 items-center justify-between border-b border-border-soft bg-surface px-4 py-2.5">
-            <h2 class="flex items-center gap-2 font-mono text-xs text-fg-subtle">
-              <span class="h-2 w-2 rounded-full bg-fg-faint" aria-hidden="true"></span> console.log
-            </h2>
-            <label class="flex cursor-pointer items-center gap-2 text-xs font-semibold text-fg-subtle">
-              <input type="checkbox" class="cursor-pointer accent-primary" [checked]="autoScroll()" (change)="autoScroll.set($any($event.target).checked)" />
-              Auto-scroll
+      <!-- O que aconteceu -->
+      <section
+        class="flex min-h-[350px] flex-col overflow-hidden rounded-xl border border-border-soft lg:col-span-8"
+        [class]="technical() ? 'bg-console' : 'bg-surface'"
+      >
+        <div
+          class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border-soft bg-surface px-4 py-3"
+        >
+          <h2 class="text-base font-semibold">
+            {{ technical() ? 'Registro técnico' : 'O que aconteceu' }}
+          </h2>
+          <div class="flex items-center gap-4">
+            <label
+              class="flex cursor-pointer items-center gap-2 text-xs font-semibold text-fg-subtle"
+            >
+              <input
+                type="checkbox"
+                class="cursor-pointer accent-primary"
+                [checked]="autoScroll()"
+                (change)="autoScroll.set($any($event.target).checked)"
+              />
+              Acompanhar as novidades
             </label>
+            <button
+              type="button"
+              (click)="technical.set(!technical())"
+              [attr.aria-pressed]="technical()"
+              class="text-xs font-semibold text-fg-subtle underline transition-colors duration-200 hover:text-fg"
+            >
+              {{ technical() ? 'Voltar para o resumo' : 'Mostrar detalhes técnicos' }}
+            </button>
           </div>
+        </div>
 
-          <div #console class="flex-1 space-y-1 overflow-y-auto p-4 font-mono text-[13px] leading-relaxed text-fg-muted select-text" role="log">
-            <div class="text-fg-faint">&gt; tail -f rpa_execution_{{ e.id }}.log</div>
-            @for (log of e.logs; track $index) {
-              @switch (log.level) {
-                @case ('error') {
-                  <div class="-mx-4 mt-2 flex gap-2 border-l-2 border-danger bg-danger/5 px-4 py-1 text-danger">
-                    <span class="shrink-0 text-fg-faint">[{{ log.timestamp | clock }}]</span>
-                    <span class="shrink-0 font-bold">[{{ logTags[log.level] }}]</span>
-                    <span class="whitespace-pre-wrap">{{ log.message }}</span>
-                  </div>
-                }
-                @case ('warning') {
-                  <div class="flex gap-2 text-warning">
-                    <span class="shrink-0 text-fg-faint">[{{ log.timestamp | clock }}]</span>
-                    <span class="shrink-0 font-bold">[{{ logTags[log.level] }}]</span>
-                    <span>{{ log.message }}</span>
-                  </div>
-                }
-                @default {
-                  <div class="flex gap-2">
-                    <span class="shrink-0 text-fg-faint">[{{ log.timestamp | clock }}]</span>
-                    <span class="shrink-0 font-bold" [class]="log.level === 'success' ? 'text-success' : 'text-fg-subtle'">[{{ logTags[log.level] }}]</span>
-                    <span>{{ log.message }}</span>
-                  </div>
-                }
+        <div
+          #console
+          class="flex-1 overflow-y-auto p-4 select-text"
+          role="log"
+          [attr.aria-label]="technical() ? 'Registro técnico' : 'O que aconteceu'"
+        >
+          @if (technical()) {
+            <div class="space-y-1 font-mono text-[13px] leading-relaxed text-fg-muted">
+              @for (log of e.logs; track $index) {
+                <div
+                  class="flex gap-2"
+                  [class]="
+                    log.level === 'error'
+                      ? 'text-danger'
+                      : log.level === 'warning'
+                        ? 'text-warning'
+                        : ''
+                  "
+                >
+                  <span class="shrink-0 text-fg-faint">[{{ log.timestamp | clock }}]</span>
+                  <span class="shrink-0 font-bold" [class.text-success]="log.level === 'success'"
+                    >[{{ logTags[log.level] }}]</span
+                  >
+                  <span class="whitespace-pre-wrap">{{ log.message }}</span>
+                </div>
+              } @empty {
+                <div class="text-fg-faint">Nenhum registro.</div>
               }
-            } @empty {
-              <div class="text-fg-faint">Nenhum log registrado.</div>
+            </div>
+          } @else {
+            <ol class="space-y-3" data-testid="activity">
+              @for (entry of activity(); track $index) {
+                <li class="flex gap-3 text-sm">
+                  <span
+                    class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
+                    aria-hidden="true"
+                    [class]="
+                      entry.level === 'error'
+                        ? 'bg-danger/15 text-danger'
+                        : entry.level === 'warning'
+                          ? 'bg-warning/15 text-warning'
+                          : entry.level === 'success'
+                            ? 'bg-success/15 text-success'
+                            : 'bg-surface-elevated text-fg-subtle'
+                    "
+                  >
+                    @switch (entry.level) {
+                      @case ('success') {
+                        <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path
+                            fill-rule="evenodd"
+                            clip-rule="evenodd"
+                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          />
+                        </svg>
+                      }
+                      @case ('error') {
+                        <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="3"
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      }
+                      @case ('warning') {
+                        <span class="text-xs font-bold">!</span>
+                      }
+                      @default {
+                        <span class="h-1.5 w-1.5 rounded-full bg-current"></span>
+                      }
+                    }
+                  </span>
+                  <div class="min-w-0 flex-1">
+                    <p
+                      [class]="
+                        entry.level === 'error'
+                          ? 'text-danger'
+                          : entry.level === 'warning'
+                            ? 'text-warning'
+                            : 'text-fg'
+                      "
+                    >
+                      <span class="sr-only">{{ levelNames[entry.level] }}: </span>{{ entry.text }}
+                    </p>
+                    @if (entry.progress; as p) {
+                      <div
+                        class="mt-1.5 h-1.5 max-w-sm overflow-hidden rounded-full bg-surface-elevated"
+                        aria-hidden="true"
+                      >
+                        <div
+                          class="h-full rounded-full bg-info"
+                          [style.width.%]="percent(p.done, p.total)"
+                        ></div>
+                      </div>
+                    }
+                  </div>
+                  <span class="shrink-0 text-xs text-fg-faint">{{ entry.timestamp | clock }}</span>
+                </li>
+              } @empty {
+                <li class="text-sm text-fg-subtle">Nada registrado ainda.</li>
+              }
+            </ol>
+            @if (hiddenLogs()) {
+              <p class="mt-4 border-t border-border-soft pt-3 text-xs text-fg-faint">
+                Mensagens técnicas e repetidas foram ocultadas. Para ver tudo, use "Mostrar detalhes
+                técnicos".
+              </p>
             }
-          </div>
-        </section>
-      </div>
+          }
+        </div>
+      </section>
     </div>
   }
 }

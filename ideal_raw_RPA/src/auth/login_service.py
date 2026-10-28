@@ -106,7 +106,7 @@ def fazer_login_lms(
             headless=headless,
             timeout=timeout,
         )
-        logger.info(f"OTP temporário obtido para login: {otp}")
+        logger.info("OTP temporário obtido para login.")
 
     # 2. Inicializa o navegador caso uma Page não tenha sido fornecida
     playwright_instance = None

@@ -240,15 +240,15 @@ def obter_otp_temporario(
 
                     resp = resp_info.value
                     resp_text = resp.text().strip()
-                    logger.info(f"Resposta do serviço: {resp_text}")
-
                     partes = resp_text.split("#")
                     result_code = partes[0] if len(partes) > 0 else ""
                     result_msg = partes[1] if len(partes) > 1 else ""
+                    # A resposta traz o OTP no 3º campo: só o código e a mensagem vão para o log
+                    logger.info(f"Resposta do serviço: código {result_code} {result_msg}".rstrip())
 
                     if result_code == "0" and len(partes) >= 3:
                         otp_code = partes[2].strip()
-                        logger.info(f"OTP obtido com sucesso: {otp_code}")
+                        logger.info("OTP obtido com sucesso.")
                         break
                     else:
                         logger.warning(
