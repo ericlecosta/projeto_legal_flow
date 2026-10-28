@@ -1,5 +1,5 @@
 import { DecimalPipe } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, HostListener, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import {
@@ -13,20 +13,18 @@ import {
 } from 'rxjs';
 
 import {
+  BASE_IDEAL_COLUMNS,
+  BaseIdealValue,
   Contract,
   ContractFilters,
   ContractSummary,
+  EXPORT_FORMATS,
+  ExportFormat,
   ProgressTone,
   progressTone,
 } from '../../../../shared/models/contract.model';
 import { Page } from '../../../../shared/models/execution.model';
-import {
-  formatAmount,
-  formatContractPeriod,
-  formatDateTime,
-  formatIsoDate,
-  progressStateLabel,
-} from '../../../../shared/utils/contract-format';
+import { formatBaseIdealValue, formatDateTime } from '../../../../shared/utils/contract-format';
 import { ContractsService } from '../../services/contracts.service';
 
 type ListState =
@@ -43,6 +41,16 @@ const TONE_CLASSES: Record<ProgressTone, string> = {
 };
 
 const EMPTY_FILTERS: ContractFilters = { search: '', progressState: '' };
+
+/** Colunas de texto longo: largura limitada, com o texto inteiro no title. */
+const LONG_TEXT_COLUMNS = new Set([
+  'Counterparty',
+  'Contract name',
+  'Main Contract Type',
+  'Contract type',
+  'Department of the person in charge',
+]);
+const NUMBER_COLUMNS = new Set(['Amount', 'Qty Review']);
 
 @Component({
   selector: 'app-contract-list-page',
@@ -106,10 +114,12 @@ export class ContractListPage {
     return f.search.trim() !== '' || f.progressState !== '';
   });
 
-  protected readonly label = progressStateLabel;
-  protected readonly period = formatContractPeriod;
-  protected readonly amount = formatAmount;
-  protected readonly date = formatIsoDate;
+  protected readonly columns = BASE_IDEAL_COLUMNS;
+  protected readonly exportFormats = EXPORT_FORMATS;
+  protected readonly exportMenuOpen = signal(false);
+  protected readonly canExport = computed(
+    () => this.contracts.exportUrl('xlsx', EMPTY_FILTERS) !== null,
+  );
   protected readonly dateTime = formatDateTime;
 
   constructor() {
@@ -124,6 +134,41 @@ export class ContractListPage {
 
   protected tone(state: string | null): string {
     return TONE_CLASSES[progressTone(state)];
+  }
+
+  protected cell(column: string, value: BaseIdealValue | undefined): string {
+    return formatBaseIdealValue(column, value);
+  }
+
+  /** A primeira coluna (Contract number) fica fixa ao rolar a tabela para o lado. */
+  protected headerClass(column: string, first: boolean): string {
+    return [
+      first ? 'sticky left-0 z-10 bg-surface' : '',
+      NUMBER_COLUMNS.has(column) ? 'text-right' : '',
+    ].join(' ');
+  }
+
+  protected cellClass(column: string, first: boolean): string {
+    if (first)
+      return 'sticky left-0 z-10 bg-surface-sunken font-mono font-semibold group-hover:bg-surface-elevated';
+    if (NUMBER_COLUMNS.has(column)) return 'text-right font-mono';
+    if (LONG_TEXT_COLUMNS.has(column)) return 'max-w-[16rem] truncate text-fg-muted';
+    return 'text-fg-muted';
+  }
+
+  protected exportUrl(format: ExportFormat): string | null {
+    return this.contracts.exportUrl(format, this.filters());
+  }
+
+  protected toggleExportMenu(event: Event): void {
+    event.stopPropagation();
+    this.exportMenuOpen.update((open) => !open);
+  }
+
+  @HostListener('document:click')
+  @HostListener('document:keydown.escape')
+  protected closeExportMenu(): void {
+    this.exportMenuOpen.set(false);
   }
 
   protected toggleState(state: string): void {
