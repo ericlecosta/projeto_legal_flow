@@ -246,6 +246,7 @@ Para tratar uma extração já baixada, sem o LMS: `python ideal_raw_RPA/preench
 | `GET /api/rpa/jobs/{id}/` | worker | Diz se o painel pediu para interromper |
 | `PUT /api/rpa/contracts/` | robô (etapa "Envio para o banco") | Grava a base Ideal Raw (upsert pelo número do contrato) |
 | `GET /api/contracts/` · `GET /api/contracts/summary/` | front | Lista, busca e resumo por status |
+| `GET /api/contracts/export/?format=xlsx\|xls\|csv\|pdf` | front (botão **Exportar**) | Baixa a Base Ideal com os filtros da tela, nas colunas da planilha |
 
 ---
 

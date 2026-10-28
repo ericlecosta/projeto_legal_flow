@@ -8,6 +8,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models import Contract, Execution
+from app.services.base_ideal import Value, base_ideal_row
 from app.schemas import (
     Contract as ContractSchema,
     ContractIn,
@@ -56,13 +57,13 @@ def _to_schema(row: Contract) -> ContractSchema:
             "id": row.id,
             "last_execution_id": row.last_execution_id,
             "updated_at": row.updated_at,
+            "base_ideal": base_ideal_row(row),
         }
     )
 
 
-def list_contracts(
-    db: Session, search: str | None, progress_state: str | None, department: str | None, page: int, page_size: int
-) -> Page[ContractSchema]:
+def _filtered(search: str | None, progress_state: str | None, department: str | None):
+    """Mesma busca e filtros na listagem e na exportação, na mesma ordem."""
     query = select(Contract)
     if search and search.strip():
         term = f"%{search.strip()}%"
@@ -78,14 +79,27 @@ def list_contracts(
         query = query.where(Contract.progress_state == progress_state)
     if department:
         query = query.where(Contract.department == department)
+    return query
 
+
+_ORDER = (Contract.review_requested_at.desc().nulls_last(), Contract.contract_number)
+
+
+def list_contracts(
+    db: Session, search: str | None, progress_state: str | None, department: str | None, page: int, page_size: int
+) -> Page[ContractSchema]:
+    query = _filtered(search, progress_state, department)
     count = db.scalar(select(func.count()).select_from(query.subquery()))
-    rows = db.scalars(
-        query.order_by(Contract.review_requested_at.desc().nulls_last(), Contract.contract_number)
-        .offset((page - 1) * page_size)
-        .limit(page_size)
-    ).all()
+    rows = db.scalars(query.order_by(*_ORDER).offset((page - 1) * page_size).limit(page_size)).all()
     return Page[ContractSchema](count=count, results=[_to_schema(row) for row in rows])
+
+
+def base_ideal_rows(
+    db: Session, search: str | None, progress_state: str | None, department: str | None
+) -> list[dict[str, Value]]:
+    """Todos os contratos do filtro (sem paginação), como linhas da Base Ideal, para exportar."""
+    rows = db.scalars(_filtered(search, progress_state, department).order_by(*_ORDER)).all()
+    return [base_ideal_row(row) for row in rows]
 
 
 def get_summary(db: Session) -> ContractSummary:
