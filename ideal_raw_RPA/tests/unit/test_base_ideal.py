@@ -47,3 +47,5 @@ def test_preenchimento_preserva_cabecalhos_e_substitui_exemplos(tmp_path):
     celula = wb.active.cell(2, nomes.index("Contract name") + 1)
     assert celula.value == "=texto" and celula.data_type == "s"
     wb.close()
+    # Garante que o arquivo final não fique restrito a 0600 (gerado por NamedTemporaryFile no container root)
+    assert (destino.stat().st_mode & 0o444) == 0o444

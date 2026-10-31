@@ -5,11 +5,12 @@ no formato antigo e no formato atual da extração (colunas Request Date, Qty Re
 
 from pathlib import Path
 
+import pandas as pd
 import pytest
 from openpyxl import load_workbook
 
 from src.base_ideal import MAPEAMENTO, MODELO_PADRAO, ler_registros, para_contratos_api
-from src.extract_contract import COLUNAS_FINAIS
+from src.extract_contract import COLUNAS_FINAIS, reconstruir_dados_contrato
 from src.pipeline import tratar_base_ideal
 
 pytestmark = pytest.mark.integration
@@ -85,3 +86,14 @@ def test_todos_os_contratos_tratados_cabem_no_formato_da_api():
     contratos = para_contratos_api(registros)
     assert len(contratos) == len(registros)
     assert len({c["contractNumber"] for c in contratos}) == len(contratos)
+
+
+def test_todos_os_contratos_reais_reconstruidos_do_banco_preservam_a_base_ideal(tmp_path):
+    registros = ler_registros(EXTRACAO)
+    contratos_api = para_contratos_api(registros)
+
+    linhas_reconstruidas = [reconstruir_dados_contrato(c) for c in contratos_api]
+    caminho_reconstruido = tmp_path / "crm_reconstruido.xlsx"
+    pd.DataFrame(linhas_reconstruidas, columns=COLUNAS_FINAIS).to_excel(caminho_reconstruido, index=False)
+
+    assert ler_registros(caminho_reconstruido) == registros

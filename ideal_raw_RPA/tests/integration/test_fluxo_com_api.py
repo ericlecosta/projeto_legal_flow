@@ -31,6 +31,13 @@ class ApiFalsa(BaseHTTPRequestHandler):
             return
         if self.path == "/api/rpa/executions/":
             dados = json.dumps({"id": 42}).encode()
+        elif self.path.startswith("/api/contracts/"):
+            dados = json.dumps(
+                {
+                    "count": 1,
+                    "results": [{"contractNumber": "C1", "progressState": "Effective Contract"}],
+                }
+            ).encode()
         elif self.path == "/api/rpa/contracts/":
             dados = json.dumps({"received": len(corpo["contracts"]), "created": 1, "updated": 0}).encode()
         else:
@@ -41,7 +48,7 @@ class ApiFalsa(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(dados)
 
-    do_POST = do_PATCH = do_PUT = _responder
+    do_GET = do_POST = do_PATCH = do_PUT = _responder
 
     def log_message(self, *args):  # silencia o log padrão do http.server
         pass
@@ -119,3 +126,14 @@ def test_token_errado_nao_trava_o_robo_mas_os_contratos_nao_sao_gravados(api):
     assert resultado.erro_titulo == "Falha ao gravar os contratos no banco"
     assert resultado.caminho_base_ideal == "base_ideal.xlsx"
     assert [caminho for _, caminho, *_ in requisicoes] == ["/api/rpa/executions/", "/api/rpa/contracts/"]
+
+
+def test_cliente_lista_contratos_da_api_para_extracao_incremental(api):
+    url, requisicoes = api
+    cliente = MonitorClient(url, TOKEN)
+    contratos = cliente.listar_contratos()
+
+    assert list(contratos.keys()) == ["C1"]
+    assert contratos["C1"]["progressState"] == "Effective Contract"
+    assert requisicoes[0][0] == "GET"
+    assert requisicoes[0][1] == "/api/contracts/?page=1&page_size=100"
