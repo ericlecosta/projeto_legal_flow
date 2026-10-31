@@ -300,10 +300,7 @@ _JS_COLETA_CORPO = """
 _JS_COLETA = "({ tabela, datas, status }) => {" + _JS_VISIVEL + _JS_COLETA_CORPO
 
 # Lê a tabela visível da sub-aba Contract Biz Drop (cabeçalho + linhas)
-_JS_TABELA_BIZ_DROP = (
-    "() => {"
-    + _JS_VISIVEL
-    + """
+_JS_TABELA_BIZ_DROP = "() => {" + _JS_VISIVEL + """
   const norm = (s) => (s || "").replace(/\\s+/g, " ").trim();
   const lerLinhas = (container, seletorLinha, seletorCelula) =>
     Array.from(container.querySelectorAll(seletorLinha))
@@ -340,7 +337,6 @@ _JS_TABELA_BIZ_DROP = (
   return [];
 }
 """
-)
 
 
 # ---------------------------------------------------------------------------
@@ -457,6 +453,10 @@ def _para_bool(valor: object) -> bool:
     return str(valor or "").strip().casefold() in ("true", "1", "verdadeiro", "yes")
 
 
+# Colunas que o contrato salvo no banco precisa ter para ser reaproveitado sem abrir o LMS
+COLUNAS_OBRIGATORIAS_REAPROVEITAMENTO = ("Qty Review",)
+
+
 def contrato_mudou(estado_relatorio: str, contrato_banco: Optional[dict]) -> bool:
     """
     Decide se o contrato precisa ser aberto no LMS (True) ou se pode ser reaproveitado
@@ -473,6 +473,10 @@ def contrato_mudou(estado_relatorio: str, contrato_banco: Optional[dict]) -> boo
     raw = contrato_banco.get("raw") or {}
     numero = str(raw.get("Contract number") or contrato_banco.get("contractNumber") or "").strip()
     if not numero:
+        return True
+
+    # Contrato salvo antes de a coluna existir: reaproveitar gravaria Qty Review = 0 sem ter lido no LMS
+    if any(coluna not in raw for coluna in COLUNAS_OBRIGATORIAS_REAPROVEITAMENTO):
         return True
 
     biz_drop_data = str(raw.get("Biz-Drop Completed") or contrato_banco.get("bizDropCompletedAt") or "").strip()

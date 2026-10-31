@@ -4,4 +4,8 @@ httpx>=0.27.0
 black==26.10.1  # fixa a versão: o CI e as máquinas da equipe formatam igual
 # Teste de integração que roda o cliente e o fluxo do robô (ideal_raw_RPA/src) contra esta API
 requests>=2.31.0
+# A extração incremental do robô (src/extract_contract) é testada contra esta API; o módulo importa
+# pandas e playwright (só o pacote: nenhum navegador é aberto)
+pandas>=2.0.0
+playwright>=1.40.0
 xlrd>=2.0.1  # lê os .xls exportados nos testes

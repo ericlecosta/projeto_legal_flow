@@ -210,6 +210,16 @@ def test_contrato_mudou_biz_drop_exige_data_de_conclusao():
     assert contrato_mudou("Effective Contract", salvo_com_data) is True
 
 
+def test_contrato_salvo_antes_da_qty_review_e_lido_de_novo_no_lms():
+    # Contratos gravados antes da coluna existir não têm "Qty Review" no raw: reaproveitar daria 0
+    salvo = _contrato_api_exemplo()
+    del salvo["raw"]["Qty Review"]
+    assert contrato_mudou("Effective Contract", salvo) is True
+    # Com a coluna presente (mesmo vazia), o reaproveitamento segue a regra do status
+    salvo["raw"]["Qty Review"] = None
+    assert contrato_mudou("Effective Contract", salvo) is False
+
+
 def test_reconstruir_dados_contrato_preserva_roundtrip_com_base_ideal(tmp_path):
     contrato_api = _contrato_api_exemplo()
     reconstruido = reconstruir_dados_contrato(

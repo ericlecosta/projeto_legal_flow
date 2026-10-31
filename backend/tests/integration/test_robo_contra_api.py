@@ -34,6 +34,24 @@ def extracao(tmp_path):
     return str(destino)
 
 
+@pytest.fixture
+def extracao_com_qty_review(tmp_path):
+    """A extração de exemplo no formato atual: coluna Request Date e Qty Review preenchida (1, 2, 3, 1...)."""
+    from openpyxl import load_workbook
+
+    wb = load_workbook(EXTRACAO_EXEMPLO)
+    ws = wb.active
+    cabecalho = {c.value: c.column for c in ws[1]}
+    ws.cell(1, cabecalho["I requested a review of the contract."], "Request Date")
+    coluna = ws.max_column + 1
+    ws.cell(1, coluna, "Qty Review")
+    for linha in range(2, ws.max_row + 1):
+        ws.cell(linha, coluna, (linha - 2) % 3 + 1)
+    destino = tmp_path / "contract_review_management.xlsx"
+    wb.save(destino)
+    return str(destino)
+
+
 def servicos(extracao, falhar_em=None):
     def etapa(nome, valor):
         def _acao(*_):
@@ -144,3 +162,45 @@ def test_falha_do_robo_aparece_no_monitor(client, extracao):
     assert detalhe["error"]["title"] == "Falha ao baixar o relatório de contratos"
     assert detalhe["error"]["message"] == "erro simulado em relatorio"
     assert client.get("/api/contracts/summary/").json()["total"] == 0
+
+
+def test_qty_review_vai_da_extracao_ao_painel_e_a_exportacao(client, extracao_com_qty_review):
+    from io import BytesIO
+
+    from openpyxl import load_workbook
+
+    cliente = MonitorClient("http://testserver/api", TOKEN, session=client, timeout=None)
+    assert executar_fluxo(servicos(extracao_com_qty_review), cliente).sucesso
+
+    esperados = {r["Contract number"]: r["Qty Review"] for r in ler_registros(extracao_com_qty_review)}
+    assert set(esperados.values()) == {1, 2, 3}
+
+    pagina = client.get("/api/contracts/", params={"page_size": 100}).json()
+    no_painel = {c["contractNumber"]: c["baseIdeal"]["Qty Review"] for c in pagina["results"]}
+    assert no_painel == esperados
+
+    planilha = load_workbook(BytesIO(client.get("/api/contracts/export/", params={"format": "xlsx"}).content)).active
+    cabecalho = [c.value for c in planilha[1]]
+    coluna = cabecalho.index("Qty Review") + 1
+    exportado = {planilha.cell(r, 1).value: planilha.cell(r, coluna).value for r in range(2, planilha.max_row + 1)}
+    assert exportado == esperados
+
+
+def test_segunda_execucao_reaproveita_do_banco_o_que_nao_mudou(client, extracao_com_qty_review):
+    """Extração incremental: o robô lê os contratos da API e só reabre no LMS os que mudaram de status."""
+    from src.extract_contract import contrato_mudou, reconstruir_dados_contrato
+
+    cliente = MonitorClient("http://testserver/api", TOKEN, session=client, timeout=None)
+    assert executar_fluxo(servicos(extracao_com_qty_review), cliente).sucesso
+    registros = {r["Contract number"]: r for r in ler_registros(extracao_com_qty_review)}
+
+    salvos = cliente.listar_contratos(page_size=20)  # mais de uma página
+    assert set(salvos) == set(registros)
+
+    for numero, registro in registros.items():
+        salvo = salvos[numero]
+        if registro["Progress State"]:
+            assert contrato_mudou(registro["Progress State"], salvo) is False, numero
+            assert contrato_mudou("Status novo no LMS", salvo) is True
+        reconstruido = reconstruir_dados_contrato(salvo)
+        assert reconstruido["Qty Review"] == registro["Qty Review"], numero
