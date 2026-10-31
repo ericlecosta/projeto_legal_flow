@@ -1,5 +1,7 @@
 # 🏛️ Projeto de Automação LMS - Equipe 1 Legal
 
+> **Vai continuar o projeto?** Comece pela [passagem do projeto](docs/PASSAGEM.md): estado atual, pendências da entrega e onde mexer.
+
 Repositório corporativo para o ecossistema de automação do **LMS (Legal Management System)** da LG Electronics.
 A estrutura é modular, projetada para acomodar o robô (RPA), bem como futuras APIs de serviço e interfaces Web (Frontend).
 
@@ -228,6 +230,35 @@ Só uma execução roda por vez, venha ela do painel ou do `docker compose run`.
 em `RPA_CLAIM_TIMEOUT_SECONDS` (60 s por padrão), a execução falha com "Robô indisponível". Para ver os logs do
 worker, use `docker compose logs -f rpa-worker`. As planilhas geradas (relatório, extração e `base_ideal.xlsx`)
 ficam em `ideal_raw_RPA/downloads/`.
+
+#### Execução diária, extração incremental e completa
+
+A partir da segunda execução, o robô compara o `Progress State` do relatório com o que está no banco e só abre no
+LMS os contratos que mudaram de status (ou que ainda não têm todas as colunas, como `Qty Review`). Os demais são
+reaproveitados do banco. Mudanças que não alteram o status (por exemplo, uma data corrigida no LMS) só são vistas
+numa **extração completa**: `LMS_EXTRACAO_COMPLETA=true` no `.env` ou `docker compose run --rm -e LMS_EXTRACAO_COMPLETA=true rpa`.
+
+O jurídico precisa da planilha no primeiro horário. Para agendar no servidor (crontab do usuário que roda o Docker):
+
+```cron
+# Seg a sáb, 6h: incremental · Domingo, 6h: completa
+0 6 * * 1-6  cd /caminho/do/projeto && docker compose run --rm -T -e RPA_TRIGGER=scheduled rpa
+0 6 * * 0    cd /caminho/do/projeto && docker compose run --rm -T -e RPA_TRIGGER=scheduled -e LMS_EXTRACAO_COMPLETA=true rpa
+```
+
+A execução aparece no painel como "Pelo agendamento" e a planilha atualizada fica em **Contratos → Exportar**.
+
+#### Dump do banco (`db_init/`)
+
+`db_init/01_seed.sql` é carregado pelo Postgres **só na criação do volume** (banco vazio). Com um volume que já existe,
+ele é ignorado. Para carregar num banco existente (substitui execuções, logs e contratos):
+
+```bash
+docker compose exec -T db psql -U postgres -d lms_legal -v ON_ERROR_STOP=1 < db_init/01_seed.sql
+```
+
+Para gerar um dump novo a partir do banco atual: `python3 scripts/export_db.py` (usa a porta 5432 exposta e o `.env`).
+O dump tem dados reais de contratos da LG: o repositório é privado e o arquivo não deve sair dele.
 
 Para tratar uma extração já baixada, sem o LMS: `python ideal_raw_RPA/preencher_base_ideal.py --origem <extração.xlsx> --destino <saída.xlsx>`
 (sem argumentos, usa `docs/planilha_de_dados/contract_review_management.xlsx`).
