@@ -20,10 +20,12 @@ services:
     environment:
       - HEADLESS=true
       - PYTHONUNBUFFERED=1
+    volumes:
+      - ./ideal_raw_RPA/downloads:/app/downloads
     networks:
       - lms_network
-    # Comando padrão (pode ser sobrescrito para executar 'python obter_otp.py' ou comandos manuais)
-    command: ["python", "login.py"]
+    # Fluxo completo; pode ser sobrescrito para executar 'python login.py' ou 'python obter_otp.py'.
+    command: ["python", "main.py"]
 
   # ===========================================================================
   # [EXPANSÃO FUTURA] Serviço: Backend API (ex: FastAPI / Flask / Express)

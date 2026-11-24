@@ -103,6 +103,19 @@ Para subir e executar o fluxo de login do RPA:
 docker compose up --build rpa
 ```
 
+Esse comando executa login, baixa o relatório do LMS, extrai os detalhes dos contratos e
+gera `ideal_raw_RPA/downloads/Base Ideal preenchida.xlsx`. Os relatórios intermediários
+também ficam nessa pasta. A execução usa, por padrão, subsidiária `LGESP`, período `3`
+e departamento contendo `mao`; configure `LMS_SUBSIDIARY_CODE`, `LMS_PERIODO` e
+`LMS_FILTRO_DEPARTAMENTO` no `.env` para alterar esses filtros. A execução substitui
+os arquivos de saída anteriores. Caso falhe, uma planilha de execução anterior pode
+continuar na pasta; confira a mensagem de sucesso e a data do arquivo.
+Contratos cujo link não apareça no prazo são omitidos da Base Ideal e registrados em
+`ideal_raw_RPA/downloads/Pendencias contratos.xlsx` para verificação no LMS. O arquivo
+de pendências é recriado a cada execução concluída, inclusive quando não há pendências.
+Um prazo esgotado não confirma, por si só, que o contrato não existe. Outras falhas
+interrompem o processo.
+
 ### 4. Executar Comandos Específicos do RPA via Contêiner
 
 - **Obter apenas o OTP Temporário**:
