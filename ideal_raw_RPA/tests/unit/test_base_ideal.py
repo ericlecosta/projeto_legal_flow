@@ -26,7 +26,7 @@ def test_transformacoes():
 def test_preenchimento_preserva_cabecalhos_e_substitui_exemplos(tmp_path):
     origem, modelo, destino = [tmp_path / nome for nome in ("origem.xlsx", "modelo.xlsx", "destino.xlsx")]
     wb = Workbook()
-    colunas = list(dict.fromkeys(modulo.MAPEAMENTO.values()))
+    colunas = list(dict.fromkeys([*modulo.MAPEAMENTO.values(), "Effective Contract"]))
     wb.active.append(colunas)
     dados = {"Contract Name": "=texto", "Contract Type": "Others\nLeasing",
              "Contract Period": "2026-01-01 ~ 2026-12-31", "Contract Amount": "1,234.56[BRL] Brazil",
