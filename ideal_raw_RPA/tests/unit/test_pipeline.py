@@ -56,6 +56,15 @@ def test_fluxo_completo_reporta_cada_etapa():
     assert fechados == ["page"]
 
 
+def test_fluxo_com_pendencias_reporta_status_atypical():
+    cliente = FakeCliente()
+    svc, _ = servicos(tem_pendencias=lambda: True)
+    resultado = executar_fluxo(svc, cliente)
+    assert resultado.sucesso
+    assert resultado.status == "atypical"
+    assert cliente.eventos[-1] == ("fim", "atypical", None)
+
+
 def test_extracao_detalhada_recebe_o_relatorio_baixado():
     recebido = []
     svc, _ = servicos(extrair_detalhes=lambda page, caminho: recebido.append((page, caminho)) or "/tmp/d.xlsx")

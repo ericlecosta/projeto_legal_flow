@@ -7,8 +7,9 @@ import time
 import logging
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlsplit
 
-from playwright.sync_api import Page, Download
+from playwright.sync_api import Page, Download, TimeoutError as PlaywrightTimeoutError
 
 logger = logging.getLogger("rpa_lms.extract")
 
@@ -17,6 +18,100 @@ class ExtractError(Exception):
     """Exceção disparada quando ocorre falha no fluxo de extração de dados."""
 
     pass
+
+
+def fechar_aviso_dashboard(page: Page, timeout: int = 5000) -> bool:
+    """Fecha somente o aviso do dashboard identificado pela tabela de pop-ups."""
+    # Seletor confirmado na tela de aviso do LMS; não depende da posição do
+    # contêiner no body, que pode mudar quando outros elementos forem abertos.
+    fechar = page.locator(
+        '.modal.show .Modal_Footer_Flex_Space.modal-footer '
+        '.Base_Justify_Right button'
+    ).filter(has_text="Close")
+    fechados = 0
+    for _ in range(20):
+        try:
+            fechar.first.wait_for(state="visible", timeout=timeout if fechados == 0 else 1000)
+        except PlaywrightTimeoutError:
+            break
+        visiveis = [fechar.nth(i) for i in range(fechar.count()) if fechar.nth(i).is_visible()]
+        if len(visiveis) != 1:
+            raise ExtractError("Não foi possível identificar um único botão Close no aviso do LMS.")
+        modal = visiveis[0].locator('xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " modal ")][1]')
+        elemento = modal.element_handle(timeout=timeout)
+        if elemento is None:
+            raise ExtractError("Não foi possível identificar o aviso aberto do LMS.")
+        texto_anterior = elemento.inner_text()
+        visiveis[0].click(timeout=timeout)
+        # Alguns avisos reutilizam o mesmo elemento do modal; verificar apenas
+        # se ele ficou oculto confundiria o aviso seguinte com o anterior.
+        page.wait_for_function(
+            "([el, texto]) => !el.isConnected || !el.getClientRects().length || el.innerText !== texto",
+            arg=[elemento, texto_anterior], timeout=timeout,
+        )
+        fechados += 1
+        logger.info("Aviso do dashboard fechado pelo botão Close (%s).", fechados)
+    else:
+        raise ExtractError("Limite de 20 avisos do LMS atingido; verifique a captura de diagnóstico.")
+
+    if fechados:
+        return True
+
+    aviso = page.get_by_text("Whether to use pop-ups", exact=False).first
+    try:
+        aviso.wait_for(state="visible", timeout=timeout)
+    except PlaywrightTimeoutError:
+        return False
+
+    # A tabela identifica o aviso; limitar a busca ao primeiro ancestral que
+    # também tenha um controle evita clicar no X de outros painéis da tela.
+    modal = aviso.locator(
+        'xpath=ancestor::*[.//table and (.//button or .//*[@role="button"])][1]'
+    )
+    controles = modal.locator('button, [role="button"]')
+    visiveis = [controles.nth(i) for i in range(controles.count()) if controles.nth(i).is_visible()]
+    candidatos = []
+    for controle in visiveis:
+        nome = " ".join(filter(None, [
+            controle.get_attribute("aria-label"), controle.get_attribute("title"),
+            controle.get_attribute("class"), controle.inner_text(),
+        ])).lower()
+        if any(termo in nome for termo in ("close", "fechar", "닫기", "×", "✕")):
+            candidatos.append(controle)
+    if len(candidatos) == 1:
+        botao = candidatos[0]
+    elif not candidatos and len(visiveis) == 1:
+        botao = visiveis[0]
+    else:
+        raise ExtractError("Aviso do dashboard encontrado, mas não foi possível identificar com segurança o botão de fechar.")
+    botao.click(timeout=timeout)
+    aviso.wait_for(state="hidden", timeout=timeout)
+    logger.info("Aviso do dashboard fechado.")
+    return True
+
+
+def navegar_para_contratos(page: Page, url: str, timeout: int) -> None:
+    """Troca a rota do LMS sem recarregar a aplicação e confirma a navegação."""
+    destino = urlsplit(url)
+    atual = urlsplit(page.url)
+    for tentativa in range(2):
+        fechar_aviso_dashboard(page)
+        if (atual.scheme, atual.netloc, atual.path, atual.query) == (
+            destino.scheme, destino.netloc, destino.path, destino.query
+        ) and destino.fragment:
+            page.evaluate("fragment => { window.location.hash = fragment; }", destino.fragment)
+        else:
+            page.goto(url, wait_until="domcontentloaded", timeout=timeout)
+        try:
+            page.wait_for_url(url, timeout=timeout)
+            fechar_aviso_dashboard(page, timeout=2000)
+            if page.url == url:
+                logger.info("Página de pesquisa de contratos alcançada.")
+                return
+        except PlaywrightTimeoutError:
+            logger.warning("Tentativa %s: a página de pesquisa não foi alcançada.", tentativa + 1)
+        atual = urlsplit(page.url)
+    raise ExtractError("Não foi possível chegar à página de pesquisa de contratos; verifique a captura de diagnóstico.")
 
 
 def extrair_relatorio_contratos(
@@ -54,7 +149,7 @@ def extrair_relatorio_contratos(
     try:
         # 0. Navega para a URL direta da tela de pesquisa e gestão de contratos
         logger.info(f"Navegando para a URL de busca de contratos: {contract_search_url}")
-        page.goto(contract_search_url, wait_until="domcontentloaded", timeout=timeout)
+        navegar_para_contratos(page, contract_search_url, timeout)
         time.sleep(3)  # Pausa breve para renderização dos componentes React
 
         # =========================================================================
@@ -113,5 +208,13 @@ def extrair_relatorio_contratos(
         return caminho_destino
 
     except Exception as exc:
+        captura = Path(caminho_destino).parent / "diagnostico_filtro_lms.png"
+        try:
+            captura.parent.mkdir(parents=True, exist_ok=True)
+            page.screenshot(path=str(captura), full_page=True, timeout=10000)
+            logger.warning("Captura de diagnóstico salva em: %s", captura)
+        except Exception as captura_erro:
+            logger.warning("Não foi possível salvar a captura de diagnóstico: %s", captura_erro)
+        logger.warning("Página atual: %s", page.url.split("?")[0])
         logger.error(f"Erro durante a extração do relatório de contratos: {exc}")
         raise ExtractError(f"Falha ao extrair relatório de contratos no LMS: {exc}") from exc

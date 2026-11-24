@@ -75,6 +75,12 @@ LMS_CONTRACT_REVIEW_MANAGEMENT="https://lms.lge.com/#/app/contract/search"
 
 ## 💻 Como Usar
 
+O fluxo de extração fecha avisos do dashboard e registra contratos cujo link não
+apareceu no prazo em `downloads/Pendencias contratos.xlsx`. A lista é recriada a
+cada extração concluída; se houver pendências, o monitor registra a execução
+como atípica. Confirme cada contrato no LMS, pois o prazo esgotado não comprova
+que ele não existe. Outros erros interrompem a extração.
+
 ### 1. Apenas obter o OTP Temporário:
 ```powershell
 python ideal_raw_RPA/obter_otp.py

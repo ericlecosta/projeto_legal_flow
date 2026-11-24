@@ -59,6 +59,7 @@ def main() -> int:
     cliente = MonitorClient.from_env()
     handler = ApiLogHandler(cliente)
     logging.getLogger("rpa_lms").addHandler(handler)
+    pendencias = []
 
     def fechar(page):
         if not headless_mode:
@@ -72,9 +73,11 @@ def main() -> int:
             page=page, subsidiary_code=SUBSIDIARY_CODE, periodo=PERIODO
         ),
         extrair_detalhes=lambda page, caminho: extrair_contract_review_management(
-            page=page, caminho_relatorio=caminho, filtro_departamento=FILTRO_DEPARTAMENTO
+            page=page, caminho_relatorio=caminho, filtro_departamento=FILTRO_DEPARTAMENTO,
+            pendencias=pendencias,
         ),
         fechar=fechar,
+        tem_pendencias=lambda: bool(pendencias),
     )
 
     _banner("RPA LMS - EXTRAÇÃO DE CONTRATOS")
@@ -86,9 +89,10 @@ def main() -> int:
     )
 
     if resultado.sucesso:
-        _banner("PROCESSO CONCLUÍDO COM SUCESSO!")
+        _banner("PROCESSO CONCLUÍDO COM PENDÊNCIAS" if pendencias else "PROCESSO CONCLUÍDO COM SUCESSO!")
         print(f"  Relatório consolidado : {resultado.caminho_relatorio}")
         print(f"  Contract Review Mgmt  : {resultado.caminho_detalhes}")
+        print(f"  Pendências            : {Path(resultado.caminho_detalhes).parent / 'Pendencias contratos.xlsx'} ({len(pendencias)} contrato(s))")
         print("=" * 55 + "\n")
         return 0
 

@@ -26,3 +26,4 @@ __pycache__/
 .gitignore
 .vscode/
 .idea/
+downloads/

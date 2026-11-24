@@ -13,10 +13,12 @@ Fluxo:
 import logging
 import re
 import time
+import tempfile
 from pathlib import Path
 from typing import Optional
 
 import pandas as pd
+from openpyxl import Workbook
 from playwright.sync_api import Page, TimeoutError as PlaywrightTimeoutError
 
 logger = logging.getLogger("rpa_lms.extract_contract")
@@ -26,6 +28,32 @@ class ExtractContractError(Exception):
     """Exceção disparada quando ocorre falha no fluxo de extração detalhada."""
 
     pass
+
+
+def salvar_pendencias(pendencias: list[dict], destino: Path) -> None:
+    """Salva as pendências da execução atual, mesmo quando a lista está vazia."""
+    destino = Path(destino)
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    livro = Workbook()
+    folha = livro.active
+    folha.title = "Pendências"
+    colunas = ("Contract Number", "Department of the person in charge", "Motivo")
+    folha.append(colunas)
+    for item in pendencias:
+        folha.append([item.get(coluna, "") for coluna in colunas])
+        for celula in folha[folha.max_row]:
+            celula.data_type = "s"
+    temporario = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=destino.parent, suffix=".xlsx", delete=False) as arquivo:
+            temporario = Path(arquivo.name)
+        livro.save(temporario)
+        livro.close()
+        temporario.replace(destino)
+    finally:
+        livro.close()
+        if temporario is not None:
+            temporario.unlink(missing_ok=True)
 
 
 # ---------------------------------------------------------------------------
@@ -53,7 +81,7 @@ STATUS_FIELDS = {
     "Legal Team Consent": '.Comment_Content:has-text("Legal Team Consent")',
     "Approval Completed Flag": '.Comment_Content:has-text("Status changed to in Approval Completed")',
     "Processing Approval": '.Comment_Content:has-text("Status changed to in Processing Approval")',
-    "Contract Expired": '.Comment_Content:has-text("Contract Expired")',
+    "Contract Expired Flag": '.Comment_Content:has-text("Contract Expired")',
 }
 
 # Colunas que são DATAS — extraídas como "o span.Date mais próximo
@@ -67,6 +95,7 @@ DATE_FIELDS = {
     "Processing Approval for Execution": "Status changed to in ‘Processing Approval for Execution ’",
     "Approval Completed": "Status changed to in ‘Approval Completed ’",
     "Effective Contract": "Status changed to in ‘Effective Contract’",
+    "Contract Expired": "Status changed to in ‘Contract Expired’",
     "Biz-Drop Completed": "Status changed to in ‘Biz-Drop Completed’",
 }
 
@@ -90,6 +119,7 @@ for nome in TABELA_FIELDS:
         COLUNAS_FINAIS.append("Processing Approval for Execution")
         COLUNAS_FINAIS.append("Approval Completed")
         COLUNAS_FINAIS.append("Effective Contract")
+        COLUNAS_FINAIS.append("Contract Expired")
         COLUNAS_FINAIS.append("Biz-Drop Completed")
 
 COLUNAS_FINAIS.extend(STATUS_FIELDS)
@@ -186,24 +216,24 @@ def _abrir_contrato_via_busca(page: Page, contract_number: str, timeout: int) ->
     url = BASE_URL.format(contract_number=contract_number)
     logger.info(f"Abrindo contrato via busca: {contract_number}")
 
-    page.goto(url, wait_until="domcontentloaded", timeout=0)
+    page.goto(url, wait_until="domcontentloaded", timeout=timeout)
     time.sleep(2)
 
     # Link do contrato: <a href="#/app/contract/save?id=...">
     link_contrato = page.locator('a[href*="/app/contract/save?id="]').first
     try:
-        link_contrato.wait_for(state="visible", timeout=0)
+        link_contrato.wait_for(state="visible", timeout=timeout)
     except PlaywrightTimeoutError:
-        logger.warning(f"Contrato {contract_number} não encontrado na busca.")
+        logger.warning("Link do contrato %s não apareceu no prazo da busca; será registrado como pendência.", contract_number)
         return None
 
     # Abre em nova aba (target=_blank) e captura a nova Page
-    with page.context.expect_page() as new_page_info:
+    with page.context.expect_page(timeout=timeout) as new_page_info:
         link_contrato.click()
 
     nova_page = new_page_info.value
-    nova_page.wait_for_load_state("domcontentloaded", timeout=0)
-    nova_page.wait_for_selector('span[class="ContractName_Label"]', timeout=0)
+    nova_page.wait_for_load_state("domcontentloaded", timeout=timeout)
+    nova_page.wait_for_selector('span[class="ContractName_Label"]', timeout=timeout)
     time.sleep(5)
 
     return nova_page
@@ -239,6 +269,7 @@ def extrair_contract_review_management(
     coluna_filtro: str = "Department of the person in charge",
     coluna_contract_number: str = "Contract Number",
     timeout: int = 30000,
+    pendencias: Optional[list] = None,
 ) -> str:
     """
     Executa a extração detalhada de contratos a partir do relatório consolidado.
@@ -252,6 +283,7 @@ def extrair_contract_review_management(
         coluna_filtro: Nome da coluna de departamento.
         coluna_contract_number: Nome da coluna com o número do contrato.
         timeout: Timeout (ms) para seletores e navegação.
+        pendencias: Lista opcional que receberá os contratos sem link encontrado.
 
     Returns:
         Caminho absoluto do arquivo contract_review_management.xlsx.
@@ -259,6 +291,9 @@ def extrair_contract_review_management(
     caminho_relatorio = Path(caminho_relatorio).resolve()
     if not caminho_relatorio.exists():
         raise ExtractContractError(f"Relatório não encontrado: {caminho_relatorio}")
+
+    if pendencias is None:
+        pendencias = []
 
     if not caminho_destino:
         caminho_destino = str(caminho_relatorio.parent / "contract_review_management.xlsx")
@@ -283,9 +318,7 @@ def extrair_contract_review_management(
         )
 
         if df_filtrado.empty:
-            logger.warning("Nenhuma linha corresponde ao filtro. Encerrando.")
-            pd.DataFrame(columns=COLUNAS_FINAIS).to_excel(caminho_destino, index=False)
-            return caminho_destino
+            raise ExtractContractError("Nenhum contrato corresponde ao filtro de departamento.")
 
         # ------------------------------------------------------------------
         # 2. Itera sobre cada contrato
@@ -293,13 +326,12 @@ def extrair_contract_review_management(
         resultados = []
         total = len(df_filtrado)
 
-        for idx, row in df_filtrado.iterrows():
+        for posicao, (idx, row) in enumerate(df_filtrado.iterrows(), 1):
             contract_number = str(row[coluna_contract_number]).strip()
             if not contract_number:
-                logger.warning(f"Linha {idx} sem Contract Number. Pulando.")
-                continue
+                raise ExtractContractError(f"Linha {idx} sem Contract Number.")
 
-            logger.info(f"[{len(resultados)+1}/{total}] Processando {contract_number}")
+            logger.info(f"[{posicao}/{total}] Processando {contract_number}")
             origem = {
                 "Contract Number": contract_number,
                 "Department of the person in charge": str(row[coluna_filtro]).strip(),
@@ -309,14 +341,17 @@ def extrair_contract_review_management(
             try:
                 nova_page = _abrir_contrato_via_busca(page, contract_number, timeout)
                 if nova_page is None:
-                    resultados.append({**{c: "" for c in COLUNAS_FINAIS}, **origem})
+                    pendencias.append({
+                        "Contract Number": contract_number,
+                        "Department of the person in charge": origem["Department of the person in charge"],
+                        "Motivo": "Link não encontrado no prazo; verificar no LMS",
+                    })
                     continue
 
                 resultados.append({**_coletar_dados_contrato(nova_page, timeout), **origem})
 
             except Exception as exc:
-                logger.error(f"Erro ao processar {contract_number}: {exc}")
-                resultados.append({**{c: "" for c in COLUNAS_FINAIS}, **origem})
+                raise ExtractContractError(f"Erro ao processar {contract_number}: {exc}") from exc
             finally:
                 if nova_page:
                     try:
@@ -331,6 +366,13 @@ def extrair_contract_review_management(
 
         Path(caminho_destino).parent.mkdir(parents=True, exist_ok=True)
         df_resultado.to_excel(caminho_destino, index=False)
+        arquivo_pendencias = Path(caminho_destino).parent / "Pendencias contratos.xlsx"
+        salvar_pendencias(pendencias, arquivo_pendencias)
+
+        if pendencias:
+            logger.warning("Extração parcial: %s contrato(s) com pendência. Consulte: %s", len(pendencias), arquivo_pendencias)
+        else:
+            logger.info("Nenhum contrato pendente. Lista da execução: %s", arquivo_pendencias)
 
         logger.info(f"Planilha consolidada salva em: {caminho_destino} " f"({len(df_resultado)} registros)")
         return caminho_destino

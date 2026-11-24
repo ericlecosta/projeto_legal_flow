@@ -41,6 +41,7 @@ class Servicos:
     extrair_relatorio: Callable[[Any], str]
     extrair_detalhes: Callable[[Any, str], str]
     fechar: Callable[[Any], None]
+    tem_pendencias: Callable[[], bool] = lambda: False
 
 
 @dataclass
@@ -53,7 +54,7 @@ class Resultado:
 
     @property
     def sucesso(self) -> bool:
-        return self.status == "success"
+        return self.status in ("success", "atypical")
 
 
 def executar_fluxo(
@@ -90,8 +91,11 @@ def executar_fluxo(
         resultado.caminho_detalhes = etapa(
             "contract_details", lambda: servicos.extrair_detalhes(page, resultado.caminho_relatorio)
         )
-        resultado.status = "success"
-        logger.info("Fluxo concluído com sucesso.", extra={"rpa_level": "success"})
+        resultado.status = "atypical" if servicos.tem_pendencias() else "success"
+        if resultado.status == "atypical":
+            logger.warning("Fluxo concluído com pendências; confira a lista de contratos.")
+        else:
+            logger.info("Fluxo concluído com sucesso.", extra={"rpa_level": "success"})
     except Exception as exc:
         resultado.status = "failed"
         resultado.erro_titulo = TITULOS_ERRO.get(etapa_atual or "", "Falha inesperada no robô")
