@@ -63,6 +63,7 @@ CAMPOS_DATA = {
     "Approval request", "Approval request completed",
     "Register the conclusion of contract", "Biz-Drop Completed",
 }
+DATAS_SEMPRE_PREENCHIDAS = {"Start date", "End date", "Request Date"}
 
 
 def normalizar(valor):
@@ -195,7 +196,7 @@ def preencher_base_ideal(origem, modelo, destino):
             if status == 2:
                 continue
             try:
-                registros.append({campo: None if status == 1 and campo in CAMPOS_DATA
+                registros.append({campo: None if status == 1 and campo in CAMPOS_DATA - DATAS_SEMPRE_PREENCHIDAS
                                   else conclusao_contrato(linha[colunas[normalizar("Contract Expired")]],
                                                           linha[colunas[normalizar("Effective Contract")]])
                                   if campo == "Register the conclusion of contract"

@@ -85,10 +85,15 @@ class ProgressStateTest(unittest.TestCase):
                         self.assertEqual(celula.alignment.vertical, "top")
                 self.assertEqual([r["Contract number"] for r in registros],
                                  esperados + ["sem estado", "Estado desconhecido"])
+                for estado in ("Legal Comments Provided", "Request for Consent Rejected"):
+                    registro = next(r for r in registros if r["Contract number"] == estado)
+                    self.assertEqual(registro["Start date"], "2026-01-01")
+                    self.assertEqual(registro["End date"], "2026-12-31")
+                    self.assertEqual(registro["Request Date"], "2026-10-15")
                 for registro in registros:
                     status = estados.get(registro["Contract number"])
                     for campo in modulo["CAMPOS_DATA"]:
-                        if status == 1:
+                        if status == 1 and campo not in modulo["DATAS_SEMPRE_PREENCHIDAS"]:
                             self.assertIsNone(registro[campo], (registro, campo))
                         else:
                             self.assertIsNotNone(registro[campo], (registro, campo))

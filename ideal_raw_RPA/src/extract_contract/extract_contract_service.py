@@ -14,6 +14,7 @@ import logging
 import re
 import time
 import tempfile
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -87,13 +88,11 @@ STATUS_FIELDS = {
 # Colunas que são DATAS — extraídas como "o span.Date mais próximo
 # que precede o texto âncora na ordem do documento"
 DATE_FIELDS = {
-    "I requested a review of the contract.": "I request a review of the contract.",
     "Request Legal Review": "Status changed to in ‘Legal Review in Progress’",
     "Review Completed": "Status changed to in ‘Review Completed’",
     "Legal Team Consent in Progress": "Status changed to in ‘Legal Team Consent in Progress’",
     "Legal Team Consent Completed": "Status changed to in ‘Legal Team Consent Completed’",
     "Processing Approval for Execution": "Status changed to in ‘Processing Approval for Execution ’",
-    "Approval Completed": "Status changed to in ‘Approval Completed ’",
     "Effective Contract": "Status changed to in ‘Effective Contract’",
     "Contract Expired": "Status changed to in ‘Contract Expired’",
     "Biz-Drop Completed": "Status changed to in ‘Biz-Drop Completed’",
@@ -208,6 +207,75 @@ def _extrair_data_por_texto(page: Page, texto_ancora: str) -> str:
         return ""
 
 
+def _extrair_data_mais_antiga_historico(page: Page) -> str:
+    """Retorna a data mais antiga dos eventos visíveis da aba Comment."""
+    datas = page.locator(
+        '.CommentTimeline_Body > .Container > .Base_Justify_Left > span.Date:visible'
+    )
+    valores = []
+    for indice in range(datas.count()):
+        texto = datas.nth(indice).inner_text().strip()
+        try:
+            data = datetime.fromisoformat(texto)
+        except ValueError as exc:
+            raise ExtractContractError("Data ausente ou inválida no histórico de comentários.") from exc
+        valores.append((data, texto))
+    if not valores:
+        logger.warning("Nenhuma data encontrada no histórico de comentários; Request Date ficará vazio.")
+        return ""
+    return min(valores, key=lambda item: item[0])[1]
+
+
+def _extrair_data_ultima_aprovacao(page: Page, timeout: int) -> str:
+    """Consulta Contract conclusion apenas quando o histórico indica aprovação concluída."""
+    evento = page.locator("span").filter(
+        has_text=re.compile(r"Status changed to in\s*[‘’'\"“”]?\s*Approval Completed\b", re.IGNORECASE)
+    )
+    if evento.count() == 0:
+        return ""
+
+    area = page.locator(".ButtonsGroupTabs_Body").filter(
+        has=page.locator(".nav-tabs .nav-link").filter(has_text=re.compile(r"^\s*Approval History\s*$", re.I))
+    )
+    if area.count() != 1:
+        raise ExtractContractError("Não foi possível identificar a seção Approval History.")
+    aba = area.locator(".nav-tabs .nav-link").filter(has_text=re.compile(r"^\s*Approval History\s*$", re.I))
+    aba.click(timeout=timeout)
+    area.locator(".nav-tabs .nav-link.active").filter(
+        has_text=re.compile(r"^\s*Approval History\s*$", re.I)
+    ).wait_for(state="visible", timeout=timeout)
+    conclusao = area.locator(".nav-pills .nav-link").filter(
+        has_text=re.compile(r"^\s*Contract conclusion\s*$", re.I)
+    )
+    conclusao.click(timeout=timeout)
+    area.locator(".nav-pills .nav-link.active").filter(
+        has_text=re.compile(r"^\s*Contract conclusion\s*$", re.I)
+    ).wait_for(state="visible", timeout=timeout)
+
+    tabela = area.locator('[role="table"]:visible').filter(
+        has=page.locator('[role="columnheader"][data-column-id="ProcessingDate"]')
+    )
+    tabela.first.wait_for(state="visible", timeout=timeout)
+    if tabela.count() != 1:
+        raise ExtractContractError("Não foi possível identificar uma única tabela de aprovação.")
+    linhas = tabela.locator('.rdt_TableBody [role="row"]')
+    datas = []
+    for indice in range(linhas.count()):
+        linha = linhas.nth(indice)
+        status = linha.locator('[role="cell"][data-column-id="ApprSignType"]').inner_text().strip()
+        if status.casefold() != "approver":
+            continue
+        valor = linha.locator('[role="cell"][data-column-id="ProcessingDate"]').inner_text().strip()
+        try:
+            data = datetime.fromisoformat(valor)
+        except ValueError as exc:
+            raise ExtractContractError("Data de aprovador ausente ou inválida na tabela de aprovação.") from exc
+        datas.append((data, valor))
+    if not datas:
+        raise ExtractContractError("Evento Approval Completed encontrado, mas não há aprovadores na tabela.")
+    return max(datas, key=lambda item: item[0])[1]
+
+
 def _abrir_contrato_via_busca(page: Page, contract_number: str, timeout: int) -> Optional[Page]:
     """
     Navega até elastic_search, clica no link do contrato e abre em nova aba.
@@ -248,6 +316,7 @@ def _coletar_dados_contrato(page: Page, timeout: int) -> dict:
         dados[coluna_excel] = _extrair_campo_tabela(page, label_tela)
         if coluna_excel == "Requester":
             dados["Progress State"] = _extrair_progress_state(page)
+            dados["I requested a review of the contract."] = _extrair_data_mais_antiga_historico(page)
             for coluna_data, texto_ancora in DATE_FIELDS.items():
                 dados[coluna_data] = _extrair_data_por_texto(page, texto_ancora)
 
@@ -255,6 +324,7 @@ def _coletar_dados_contrato(page: Page, timeout: int) -> dict:
     for coluna_excel, selector in STATUS_FIELDS.items():
         dados[coluna_excel] = _extrair_status(page, selector)
 
+    dados["Approval Completed"] = _extrair_data_ultima_aprovacao(page, timeout)
     return dados
 
 
